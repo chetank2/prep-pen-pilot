@@ -46,7 +46,7 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
 
     logger.info(`PDF uploaded successfully: ${originalname}`, { pdfId });
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         id: pdfId,
@@ -58,7 +58,7 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
     });
   } catch (error) {
     logger.error('PDF upload failed:', error);
-    res.status(500).json({ error: 'Failed to process PDF' });
+    return res.status(500).json({ error: 'Failed to process PDF' });
   }
 });
 
@@ -73,7 +73,7 @@ router.post('/extract-text', async (req, res) => {
 
     // In a real implementation, you would fetch the PDF from storage
     // For now, return a mock response
-    res.json({
+    return res.json({
       success: true,
       data: {
         text: 'Sample extracted text from pages ' + startPage + ' to ' + endPage,
@@ -82,7 +82,7 @@ router.post('/extract-text', async (req, res) => {
     });
   } catch (error) {
     logger.error('Text extraction failed:', error);
-    res.status(500).json({ error: 'Failed to extract text' });
+    return res.status(500).json({ error: 'Failed to extract text' });
   }
 });
 
@@ -92,7 +92,7 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
     // In a real implementation, fetch from database
-    res.json({
+    return res.json({
       success: true,
       data: {
         id,
@@ -104,7 +104,7 @@ router.get('/:id', async (req, res) => {
     });
   } catch (error) {
     logger.error('Failed to get PDF metadata:', error);
-    res.status(500).json({ error: 'Failed to get PDF metadata' });
+    return res.status(500).json({ error: 'Failed to get PDF metadata' });
   }
 });
 

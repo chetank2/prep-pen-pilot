@@ -29,13 +29,13 @@ router.post('/canvas', async (req, res) => {
 
     logger.info(`Canvas note saved: ${title}`, { noteId });
 
-    res.json({
+    return res.json({
       success: true,
       data: note
     });
   } catch (error) {
     logger.error('Failed to save canvas note:', error);
-    res.status(500).json({ error: 'Failed to save canvas note' });
+    return res.status(500).json({ error: 'Failed to save canvas note' });
   }
 });
 
@@ -63,13 +63,13 @@ router.post('/mindmap', async (req, res) => {
 
     logger.info(`Mind map saved: ${title}`, { mapId });
 
-    res.json({
+    return res.json({
       success: true,
       data: mindMap
     });
   } catch (error) {
     logger.error('Failed to save mind map:', error);
-    res.status(500).json({ error: 'Failed to save mind map' });
+    return res.status(500).json({ error: 'Failed to save mind map' });
   }
 });
 
@@ -110,13 +110,13 @@ router.get('/', async (req, res) => {
       filteredNotes = filteredNotes.filter(note => note.folderId === folderId);
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: filteredNotes
     });
   } catch (error) {
     logger.error('Failed to get notes:', error);
-    res.status(500).json({ error: 'Failed to get notes' });
+    return res.status(500).json({ error: 'Failed to get notes' });
   }
 });
 
@@ -137,13 +137,13 @@ router.get('/:id', async (req, res) => {
       updatedAt: '2024-01-15T10:00:00Z'
     };
 
-    res.json({
+    return res.json({
       success: true,
       data: mockNote
     });
   } catch (error) {
     logger.error('Failed to get note:', error);
-    res.status(500).json({ error: 'Failed to get note' });
+    return res.status(500).json({ error: 'Failed to get note' });
   }
 });
 
@@ -166,13 +166,13 @@ router.put('/:id', async (req, res) => {
 
     logger.info(`Note updated: ${id}`);
 
-    res.json({
+    return res.json({
       success: true,
       data: updatedNote
     });
   } catch (error) {
     logger.error('Failed to update note:', error);
-    res.status(500).json({ error: 'Failed to update note' });
+    return res.status(500).json({ error: 'Failed to update note' });
   }
 });
 
@@ -184,13 +184,13 @@ router.delete('/:id', async (req, res) => {
     // In real implementation, delete from database
     logger.info(`Note deleted: ${id}`);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Note deleted successfully'
     });
   } catch (error) {
     logger.error('Failed to delete note:', error);
-    res.status(500).json({ error: 'Failed to delete note' });
+    return res.status(500).json({ error: 'Failed to delete note' });
   }
 });
 

@@ -50,21 +50,21 @@ Please provide:
       temperature: 0.3,
     });
 
-    const summary = completion.choices[0].message.content;
+    const summary = completion.choices[0]?.message?.content || '';
 
     logger.info('Text summarized successfully', { textLength: text.length });
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         summary,
         originalLength: text.length,
-        summaryLength: summary?.length || 0
+        summaryLength: summary.length
       }
     });
   } catch (error) {
     logger.error('Summarization failed:', error);
-    res.status(500).json({ error: 'Failed to summarize text' });
+    return res.status(500).json({ error: 'Failed to summarize text' });
   }
 });
 
@@ -112,24 +112,24 @@ Format the response as:
       temperature: 0.2,
     });
 
-    const mindMapText = completion.choices[0].message.content;
+    const mindMapText = completion.choices[0]?.message?.content || '{}';
     
     try {
-      const mindMap = JSON.parse(mindMapText || '{}');
+      const mindMap = JSON.parse(mindMapText);
       
       logger.info('Mind map generated successfully', { topic });
 
-      res.json({
+      return res.json({
         success: true,
         data: mindMap
       });
     } catch (parseError) {
       logger.error('Failed to parse mind map JSON:', parseError);
-      res.status(500).json({ error: 'Failed to generate valid mind map structure' });
+      return res.status(500).json({ error: 'Failed to generate valid mind map structure' });
     }
   } catch (error) {
     logger.error('Mind map generation failed:', error);
-    res.status(500).json({ error: 'Failed to generate mind map' });
+    return res.status(500).json({ error: 'Failed to generate mind map' });
   }
 });
 
@@ -171,11 +171,11 @@ Please provide:
       temperature: 0.3,
     });
 
-    const answer = completion.choices[0].message.content;
+    const answer = completion.choices[0]?.message?.content || '';
 
     logger.info('Question answered successfully', { questionLength: question.length });
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         question,
@@ -185,7 +185,7 @@ Please provide:
     });
   } catch (error) {
     logger.error('Question answering failed:', error);
-    res.status(500).json({ error: 'Failed to answer question' });
+    return res.status(500).json({ error: 'Failed to answer question' });
   }
 });
 
