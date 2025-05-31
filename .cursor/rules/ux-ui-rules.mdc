@@ -1,0 +1,218 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+ UX + UI RULES FOR CLEAN, CONSISTENT, USER-FRIENDLY DESIGN
+🛠️ Apply these rules consistently when generating UI components. Follow best practices of usability, spacing, accessibility, and layout systems.
+
+🎯 SPACING & LAYOUT
+Use 8pt spacing system: spacing values must be in multiples of 4px or 8px (4, 8, 16, 24, 32...)
+
+Consistent padding inside all components (e.g., px-4 py-2, not random values)
+
+Use margin-top instead of stacking multiple br tags
+
+Use auto-layout/flex/grid for proper alignment, not absolute positioning
+
+Keep content within 1200px max width on desktop
+
+✨ VISUAL HIERARCHY
+Headings must stand out (use text-xl, font-bold)
+
+Use text-gray-500 for secondary info; text-sm for meta labels
+
+Maintain a clear Z-order: modals above main content, tooltips above buttons
+
+🔲 COMPONENT DESIGN
+Buttons: consistent sizes (sm, md, lg), spacing between icon and text
+
+Inputs: consistent height, border, padding (px-3 py-2), placeholder alignment
+
+Use cards or panels with rounded, shadow, and proper padding inside
+
+Avoid empty divs, use semantic HTML (<section>, <nav>, <article>)
+
+📱 RESPONSIVENESS
+Mobile-first: all layouts must adapt at sm, md, lg, xl breakpoints
+
+Collapse sidebars, menus, or navbars on small screens
+
+Text must reflow, no overflow scroll unless necessary
+
+♿ ACCESSIBILITY
+All clickable elements must have a hover/focus/active state
+
+Add aria-label to icon-only buttons
+
+Use alt text for all images
+
+Use label + for or aria-labelledby for input fields
+
+🧠 UX LAWS TO APPLY
+Hick’s Law: Avoid showing too many options at once; use tabs, dropdowns
+
+Fitts’s Law: Buttons must be large enough to tap/click easily
+
+Law of Proximity: Related items must be close together
+
+Law of Similarity: Use consistent style for similar elements (buttons, inputs)
+
+Jakob’s Law: Follow common web patterns (breadcrumb nav, top nav, CTA at bottom)
+
+🎨 DESIGN CONSISTENCY
+Use defined design tokens:
+
+--primary-color, --border-radius, --font-body, etc.
+
+No hardcoded colors or random font sizes
+
+Use theme variables or Tailwind/utility-first CSS
+
+🧼 CLEAN CODE & UI
+No inline styles unless dynamic
+
+No duplicate components; reuse via slots or props
+
+Do not guess layout — follow component library or system
+
+Use text-left, items-center, gap-4 for clarity and alignment
+
+✅ Examples
+tsx
+Copy
+Edit
+// ✅ GOOD BUTTON
+<Button size="sm" variant="outline" className="rounded-md px-4 py-2 text-sm gap-2 items-center" />
+
+// ❌ BAD BUTTON
+<button style="padding: 13px; font-size: 11.5px;">Click</button>
+🧩 Final Notes
+Respect the design system
+
+Don’t hallucinate UI elements or UX patterns not defined
+
+Always prioritize readability, usability, and consistency
+
+
+UX & UI RULES TO ENFORCE GOOD PATTERNS (COPY-PASTE READY)
+📌 These rules guide how UI components should be structured, interact, and scale. Avoid all known UX anti-patterns and follow established design principles.
+
+🔴 1. ❌ Avoid Modal-on-Modal (Nested Modals)
+Do not open a modal inside another modal.
+
+🟢 Instead, use:
+
+Drawer for secondary actions
+
+Multi-step modal for guided flows
+
+Redirect to full page for complex forms or actions
+
+🔁 2. 🔁 Multi-Step Flows
+For sequential tasks (e.g., onboarding, setup):
+
+Use a single modal with steps (step 1 → step 2)
+
+Include progress indicators (breadcrumb or stepper)
+
+Disable background interaction
+
+🧾 3. 🗂️ Forms & Configuration UI
+Do not stack long forms inside modals.
+
+For complex forms:
+
+Use a dedicated page
+
+Or drawer panel from right side with scroll
+
+Keep form fields grouped by sections with headings
+
+🧱 4. 📏 Spacing & Layout Consistency
+Follow 8pt spacing grid (multiples of 4 or 8 pixels)
+
+Padding examples: px-4 py-2, gap-4, mt-6
+
+Do not use random paddings like px-11, py-13
+
+Always align elements in a grid or flex layout, never scattered
+
+🔳 5. 📦 Component Patterns
+Use cards for grouped content
+
+Use chips/tags for status or small labels
+
+Use badges for counts (e.g., notifications)
+
+Always use defined variants for buttons, dropdowns, inputs
+
+🎨 6. 🎨 Visual Hierarchy
+Use consistent font sizes:
+
+text-2xl font-bold for headers
+
+text-base for body
+
+text-sm text-muted for subtext
+
+Limit headings to 2 levels inside any component
+
+📱 7. 📱 Responsive Design Rules
+All components must adapt across breakpoints:
+
+sm, md, lg, xl
+
+Avoid horizontal scroll unless intentional
+
+Collapse menus, sidebars, and tables for mobile
+
+♿ 8. ♿ Accessibility Best Practices
+Every interactive element must have:
+
+hover, focus, active states
+
+aria-label or visible label
+
+Avoid using only icons without description
+
+Use proper semantic elements: button, label, section, nav
+
+🔄 9. 🔄 Feedback & Confirmation
+Show loaders for all async actions (loading, success, error)
+
+Use toast or snackbar for short alerts
+
+For destructive actions (delete, cancel):
+
+Use confirmation modal with clear CTA text (Delete, not OK)
+
+Avoid instant deletes without undo or warning
+
+🧠 10. 🧠 UX Laws to Respect
+Fitts’s Law: Keep buttons big and tappable
+
+Hick’s Law: Limit choices; collapse or group options
+
+Proximity Law: Group related items close together
+
+Consistency: Use same layout and interaction patterns throughout
+
+Jakob’s Law: Use familiar patterns (e.g., form at right, actions at bottom)
+
+🚫 11. 🧨 Avoid These Anti-Patterns
+Anti-Pattern	Replace With
+Modal inside modal	Drawer or redirect
+Long scroll modal	Step-based modal or new page
+Unlabeled buttons	Use icon + label or tooltip
+Invisible scroll areas	Add scroll indicators
+Random spacing	Use 8pt scale only
+
+🧰 12. ✅ Use Component Libraries Correctly
+Use a UI system like ShadCN, Radix, Tailwind UI, or Material UI
+
+Respect the variants and props (<Button variant="ghost" size="sm" />)
+
+Never hardcode padding, margin, or font styles
+
+
