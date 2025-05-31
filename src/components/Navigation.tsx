@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   BookOpen, 
@@ -7,7 +7,8 @@ import {
   GitBranch, 
   FolderOpen, 
   Settings,
-  BookMarked
+  BookMarked,
+  Database
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -16,11 +17,14 @@ interface NavigationProps {
 }
 
 const Navigation: React.FC<NavigationProps> = ({ activeModule, onModuleChange }) => {
+  const location = useLocation();
+  
   const navigationItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard' },
     { id: 'pdf-reader', icon: BookOpen, label: 'PDF Reader' },
     { id: 'canvas', icon: PenTool, label: 'Canvas' },
     { id: 'mindmap', icon: GitBranch, label: 'Mind Maps' },
+    { id: 'knowledge-base', icon: Database, label: 'Knowledge Base' },
     { id: 'folders', icon: FolderOpen, label: 'Organize' },
     { id: 'settings', icon: Settings, label: 'Settings' },
   ];
@@ -35,30 +39,32 @@ const Navigation: React.FC<NavigationProps> = ({ activeModule, onModuleChange })
       </div>
 
       {/* Navigation Items */}
-      {navigationItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = activeModule === item.id;
-        
-        return (
-          <button
-            key={item.id}
-            onClick={() => onModuleChange(item.id)}
-            className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-200 group relative ${
-              isActive 
-                ? 'bg-blue-500 text-white shadow-lg scale-105' 
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-            title={item.label}
-          >
-            <Icon className="w-6 h-6" />
-            
-            {/* Tooltip */}
-            <div className="absolute left-full ml-3 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
-              {item.label}
-            </div>
-          </button>
-        );
-      })}
+      <div className="space-y-2">
+        {navigationItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeModule === item.id;
+          
+          return (
+            <button
+              key={item.id}
+              onClick={() => onModuleChange(item.id)}
+              className={`w-14 h-14 rounded-xl flex items-center justify-center transition-all duration-200 group relative ${
+                isActive
+                  ? 'bg-blue-500 text-white shadow-lg scale-105' 
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+              title={item.label}
+            >
+              <Icon className="w-6 h-6" />
+              
+              {/* Tooltip */}
+              <div className="absolute left-full ml-3 px-3 py-2 bg-slate-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50">
+                {item.label}
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 };

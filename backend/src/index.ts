@@ -9,6 +9,7 @@ import { logger } from './utils/logger';
 import pdfRoutes from './routes/pdf';
 import aiRoutes from './routes/ai';
 import notesRoutes from './routes/notes';
+import knowledgeBaseRoutes from './routes/knowledgeBase';
 
 dotenv.config();
 
@@ -58,6 +59,7 @@ app.get('/health', (req, res) => {
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/notes', notesRoutes);
+app.use('/api/knowledge-base', knowledgeBaseRoutes);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);

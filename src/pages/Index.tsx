@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from '../components/Dashboard';
@@ -9,6 +8,7 @@ import FolderView from '../components/FolderView';
 import Settings from '../components/Settings';
 import Navigation from '../components/Navigation';
 import AISummaryPanel from '../components/AISummaryPanel';
+import { KnowledgeBase } from './KnowledgeBase';
 
 const Index = () => {
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -29,6 +29,8 @@ const Index = () => {
         return <FolderView onModuleChange={setActiveModule} />;
       case 'settings':
         return <Settings />;
+      case 'knowledge-base':
+        return <KnowledgeBase />;
       default:
         return <Dashboard onModuleChange={setActiveModule} />;
     }

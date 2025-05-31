@@ -1,184 +1,334 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
+  Upload, 
   ZoomIn, 
   ZoomOut, 
   RotateCw, 
-  Bookmark, 
-  MessageSquare, 
-  Lightbulb,
+  Download, 
+  Search,
   ChevronLeft,
   ChevronRight,
-  Search
+  MessageSquare,
+  Lightbulb,
+  GitBranch,
+  Loader2
 } from 'lucide-react';
+import { apiService } from '../services/api';
 
 interface PDFReaderProps {
-  onTextSelect: (text: string) => void;
-  onShowAI: () => void;
+  onModuleChange: (module: string) => void;
 }
 
-const PDFReader: React.FC<PDFReaderProps> = ({ onTextSelect, onShowAI }) => {
+interface PDFDocument {
+  id: string;
+  filename: string;
+  pageCount: number;
+  size: number;
+  uploadedAt: string;
+}
+
+const PDFReader: React.FC<PDFReaderProps> = ({ onModuleChange }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const [selectedText, setSelectedText] = useState('');
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [currentPDF, setCurrentPDF] = useState<PDFDocument | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResponse, setAiResponse] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const totalPages = 120; // Mock total pages
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-  const handleTextSelection = () => {
-    const selection = window.getSelection();
-    if (selection && selection.toString().length > 0) {
-      const text = selection.toString();
-      setSelectedText(text);
-      onTextSelect(text);
+    if (file.type !== 'application/pdf') {
+      alert('Please select a PDF file');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const response = await apiService.uploadPDF(file);
+      if (response.success && response.data) {
+        setCurrentPDF({
+          id: response.data.id,
+          filename: response.data.filename,
+          pageCount: response.data.pageCount,
+          size: response.data.size,
+          uploadedAt: response.data.uploadedAt || new Date().toISOString()
+        });
+        setCurrentPage(1);
+      } else {
+        alert('Failed to upload PDF: ' + (response.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload PDF');
+    } finally {
+      setUploading(false);
     }
   };
 
-  const pages = Array.from({ length: 12 }, (_, i) => i + 1);
+  const handleTextSelection = () => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim()) {
+      setSelectedText(selection.toString().trim());
+      setShowAIPanel(true);
+    }
+  };
+
+  const handleAIAction = async (action: 'summarize' | 'question' | 'mindmap') => {
+    if (!selectedText) return;
+
+    setAiLoading(true);
+    setAiResponse('');
+
+    try {
+      let response;
+      switch (action) {
+        case 'summarize':
+          response = await apiService.summarizeText(selectedText);
+          if (response.success && response.data) {
+            setAiResponse(response.data.summary);
+          }
+          break;
+        case 'question':
+          // For demo, we'll ask a generic question about the selected text
+          response = await apiService.askQuestion('Explain this concept in detail', selectedText);
+          if (response.success && response.data) {
+            setAiResponse(response.data.answer);
+          }
+          break;
+        case 'mindmap':
+          response = await apiService.generateMindMap(selectedText);
+          if (response.success && response.data) {
+            setAiResponse(JSON.stringify(response.data, null, 2));
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('AI action failed:', error);
+      setAiResponse('Failed to process request. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const nextPage = () => {
+    if (currentPDF && currentPage < currentPDF.pageCount) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const zoomIn = () => setZoom(Math.min(zoom + 25, 200));
+  const zoomOut = () => setZoom(Math.max(zoom - 25, 50));
 
   return (
     <div className="flex h-screen bg-slate-50">
-      {/* Thumbnail Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-200 p-4 overflow-y-auto">
-        <div className="mb-4">
-          <h3 className="font-semibold text-slate-900 mb-2">Pages</h3>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search pages..."
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          {pages.map((page) => (
-            <div
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                currentPage === page 
-                  ? 'bg-blue-50 border-2 border-blue-200' 
-                  : 'bg-slate-50 hover:bg-slate-100 border-2 border-transparent'
-              }`}
-            >
-              <div className="aspect-[3/4] bg-white rounded border border-slate-200 mb-2 flex items-center justify-center text-xs text-slate-500">
-                Page {page}
-              </div>
-              <div className="text-xs text-center text-slate-600">Page {page}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Main PDF Viewer */}
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
         <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <button 
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              <ChevronLeft className="w-5 h-5" />
+              {uploading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              <span>{uploading ? 'Uploading...' : 'Upload PDF'}</span>
             </button>
             
-            <span className="text-sm text-slate-600">
-              Page {currentPage} of {totalPages}
-            </span>
-            
-            <button 
-              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => setZoom(Math.max(50, zoom - 25))}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ZoomOut className="w-5 h-5" />
-            </button>
-            
-            <span className="text-sm text-slate-600 min-w-[4rem] text-center">{zoom}%</span>
-            
-            <button 
-              onClick={() => setZoom(Math.min(200, zoom + 25))}
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ZoomIn className="w-5 h-5" />
-            </button>
-
-            <div className="w-px h-6 bg-slate-200 mx-2"></div>
-
-            <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-              <RotateCw className="w-5 h-5" />
-            </button>
-            
-            <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors">
-              <Bookmark className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* PDF Content */}
-        <div className="flex-1 p-8 overflow-auto">
-          <div 
-            className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-8 relative"
-            style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-            onMouseUp={handleTextSelection}
-          >
-            {/* Mock PDF Content */}
-            <h1 className="text-2xl font-bold mb-6 text-slate-900">Chapter 5: Constitutional Framework</h1>
-            
-            <p className="text-slate-700 leading-relaxed mb-4">
-              The Constitution of India establishes a federal system of government with a strong center. 
-              This framework ensures that power is distributed between the Union and the States while 
-              maintaining national unity and integrity.
-            </p>
-            
-            <p className="text-slate-700 leading-relaxed mb-4">
-              The federal structure is characterized by a dual polity with the Union at the Centre and 
-              the States at the periphery. Each level of government is endowed with sovereign powers 
-              to be exercised in the field assigned to them respectively by the Constitution.
-            </p>
-
-            <h2 className="text-xl font-semibold mb-4 text-slate-900">Key Features</h2>
-            
-            <ul className="list-disc list-inside space-y-2 text-slate-700 mb-6">
-              <li>Written Constitution with detailed provisions</li>
-              <li>Federal system with unitary bias</li>
-              <li>Parliamentary form of government</li>
-              <li>Fundamental Rights and Directive Principles</li>
-              <li>Independent Judiciary</li>
-            </ul>
-
-            {/* Selection Actions */}
-            {selectedText && (
-              <div className="fixed bottom-8 right-8 bg-white rounded-xl shadow-lg border border-slate-200 p-4 flex items-center space-x-3 z-50">
-                <button
-                  onClick={onShowAI}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                >
-                  <Lightbulb className="w-4 h-4" />
-                  <span>Summarize</span>
-                </button>
-                
-                <button
-                  onClick={onShowAI}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Ask Question</span>
-                </button>
-              </div>
+            {currentPDF && (
+              <span className="text-sm text-slate-600">
+                {currentPDF.filename} ({currentPDF.pageCount} pages)
+              </span>
             )}
           </div>
+
+          {currentPDF && (
+            <div className="flex items-center space-x-4">
+              {/* Page Navigation */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={prevPage}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm">
+                  {currentPage} / {currentPDF.pageCount}
+                </span>
+                <button
+                  onClick={nextPage}
+                  disabled={currentPage === currentPDF.pageCount}
+                  className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-50"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Zoom Controls */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={zoomOut}
+                  className="p-2 rounded-lg hover:bg-slate-100"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span className="text-sm min-w-[3rem] text-center">{zoom}%</span>
+                <button
+                  onClick={zoomIn}
+                  className="p-2 rounded-lg hover:bg-slate-100"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* PDF Content Area */}
+        <div className="flex-1 overflow-auto p-8">
+          {!currentPDF ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+              <Upload className="w-16 h-16 mb-4 text-slate-300" />
+              <h3 className="text-xl font-medium mb-2">No PDF loaded</h3>
+              <p className="text-center mb-6">
+                Upload a PDF file to start reading and taking notes
+              </p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Choose PDF File
+              </button>
+            </div>
+          ) : (
+            <div 
+              className="bg-white shadow-lg mx-auto"
+              style={{ 
+                width: `${zoom}%`,
+                minHeight: '800px'
+              }}
+              onMouseUp={handleTextSelection}
+            >
+              {/* PDF Content Placeholder */}
+              <div className="p-8 border border-slate-200">
+                <div className="text-center text-slate-500 py-20">
+                  <p className="text-lg mb-4">PDF Content (Page {currentPage})</p>
+                  <p className="text-sm">
+                    This is where the actual PDF content would be rendered.
+                    <br />
+                    Select text to use AI features.
+                  </p>
+                  {selectedText && (
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                      <p className="text-sm font-medium text-blue-900">Selected Text:</p>
+                      <p className="text-sm text-blue-700 mt-1">"{selectedText}"</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* AI Panel */}
+      {showAIPanel && selectedText && (
+        <div className="w-80 bg-white border-l border-slate-200 flex flex-col">
+          <div className="p-4 border-b border-slate-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-slate-900">AI Assistant</h3>
+              <button
+                onClick={() => setShowAIPanel(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-sm text-slate-600">
+              Selected: "{selectedText.substring(0, 50)}..."
+            </p>
+          </div>
+
+          <div className="p-4 space-y-3">
+            <button
+              onClick={() => handleAIAction('summarize')}
+              disabled={aiLoading}
+              className="w-full flex items-center space-x-3 p-3 text-left rounded-lg hover:bg-slate-50 border border-slate-200"
+            >
+              <Lightbulb className="w-5 h-5 text-yellow-500" />
+              <div>
+                <div className="font-medium">Summarize</div>
+                <div className="text-sm text-slate-600">Get key points</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleAIAction('question')}
+              disabled={aiLoading}
+              className="w-full flex items-center space-x-3 p-3 text-left rounded-lg hover:bg-slate-50 border border-slate-200"
+            >
+              <MessageSquare className="w-5 h-5 text-blue-500" />
+              <div>
+                <div className="font-medium">Explain</div>
+                <div className="text-sm text-slate-600">Get detailed explanation</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => handleAIAction('mindmap')}
+              disabled={aiLoading}
+              className="w-full flex items-center space-x-3 p-3 text-left rounded-lg hover:bg-slate-50 border border-slate-200"
+            >
+              <GitBranch className="w-5 h-5 text-purple-500" />
+              <div>
+                <div className="font-medium">Mind Map</div>
+                <div className="text-sm text-slate-600">Create visual map</div>
+              </div>
+            </button>
+          </div>
+
+          {aiLoading && (
+            <div className="p-4 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+              <span className="ml-2 text-sm text-slate-600">Processing...</span>
+            </div>
+          )}
+
+          {aiResponse && (
+            <div className="flex-1 p-4 overflow-auto">
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h4 className="font-medium text-slate-900 mb-2">AI Response:</h4>
+                <div className="text-sm text-slate-700 whitespace-pre-wrap">
+                  {aiResponse}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

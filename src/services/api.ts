@@ -93,6 +93,10 @@ class ApiService {
     return this.request<PDFMetadata>(`/pdf/${id}`);
   }
 
+  async getPDFs(): Promise<ApiResponse<PDFMetadata[]>> {
+    return this.request<PDFMetadata[]>(`/pdf`);
+  }
+
   async extractText(pdfId: string, startPage: number, endPage: number): Promise<ApiResponse<{ text: string; pageRange: { startPage: number; endPage: number } }>> {
     return this.request(`/pdf/extract-text`, {
       method: 'POST',

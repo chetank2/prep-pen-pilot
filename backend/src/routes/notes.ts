@@ -4,6 +4,21 @@ import { logger } from '../utils/logger';
 
 const router = express.Router();
 
+// In-memory storage for notes (replace with database in production)
+interface Note {
+  id: string;
+  type: 'canvas' | 'mindmap';
+  title: string;
+  imageData?: string;
+  data?: any;
+  tags: string[];
+  folderId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const notesStorage: Note[] = [];
+
 // Save canvas note
 router.post('/canvas', async (req, res) => {
   try {
@@ -15,8 +30,7 @@ router.post('/canvas', async (req, res) => {
 
     const noteId = uuidv4();
     
-    // In a real implementation, save to database
-    const note = {
+    const note: Note = {
       id: noteId,
       type: 'canvas',
       title,
@@ -26,6 +40,8 @@ router.post('/canvas', async (req, res) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    notesStorage.push(note);
 
     logger.info(`Canvas note saved: ${title}`, { noteId });
 
@@ -50,7 +66,7 @@ router.post('/mindmap', async (req, res) => {
 
     const mapId = uuidv4();
     
-    const mindMap = {
+    const mindMap: Note = {
       id: mapId,
       type: 'mindmap',
       title,
@@ -60,6 +76,8 @@ router.post('/mindmap', async (req, res) => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    notesStorage.push(mindMap);
 
     logger.info(`Mind map saved: ${title}`, { mapId });
 
@@ -78,29 +96,7 @@ router.get('/', async (req, res) => {
   try {
     const { type, folderId, tags } = req.query;
 
-    // Mock data for now - in real implementation, fetch from database
-    const mockNotes = [
-      {
-        id: '1',
-        type: 'canvas',
-        title: 'Constitutional Amendments',
-        tags: ['GS2', 'Polity'],
-        folderId: 'gs2',
-        createdAt: '2024-01-15T10:00:00Z',
-        updatedAt: '2024-01-15T10:00:00Z'
-      },
-      {
-        id: '2',
-        type: 'mindmap',
-        title: 'Fundamental Rights Overview',
-        tags: ['GS2', 'Rights'],
-        folderId: 'gs2',
-        createdAt: '2024-01-14T15:30:00Z',
-        updatedAt: '2024-01-14T15:30:00Z'
-      }
-    ];
-
-    let filteredNotes = mockNotes;
+    let filteredNotes = [...notesStorage];
 
     if (type) {
       filteredNotes = filteredNotes.filter(note => note.type === type);
@@ -109,6 +105,16 @@ router.get('/', async (req, res) => {
     if (folderId) {
       filteredNotes = filteredNotes.filter(note => note.folderId === folderId);
     }
+
+    if (tags) {
+      const tagArray = Array.isArray(tags) ? tags : [tags];
+      filteredNotes = filteredNotes.filter(note => 
+        tagArray.some(tag => note.tags.includes(tag as string))
+      );
+    }
+
+    // Sort by creation date (newest first)
+    filteredNotes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     return res.json({
       success: true,
@@ -125,21 +131,15 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Mock data - in real implementation, fetch from database
-    const mockNote = {
-      id,
-      type: 'canvas',
-      title: 'Sample Note',
-      imageData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-      tags: ['GS1'],
-      folderId: 'gs1',
-      createdAt: '2024-01-15T10:00:00Z',
-      updatedAt: '2024-01-15T10:00:00Z'
-    };
+    const note = notesStorage.find(n => n.id === id);
+
+    if (!note) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
 
     return res.json({
       success: true,
-      data: mockNote
+      data: note
     });
   } catch (error) {
     logger.error('Failed to get note:', error);
@@ -153,16 +153,24 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { title, imageData, data, tags, folderId } = req.body;
 
-    // In real implementation, update in database
+    const noteIndex = notesStorage.findIndex(n => n.id === id);
+
+    if (noteIndex === -1) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    // Update the note
     const updatedNote = {
-      id,
-      title,
-      imageData,
-      data,
-      tags,
-      folderId,
+      ...notesStorage[noteIndex],
+      ...(title && { title }),
+      ...(imageData && { imageData }),
+      ...(data && { data }),
+      ...(tags && { tags }),
+      ...(folderId !== undefined && { folderId }),
       updatedAt: new Date().toISOString()
     };
+
+    notesStorage[noteIndex] = updatedNote;
 
     logger.info(`Note updated: ${id}`);
 
@@ -181,7 +189,14 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // In real implementation, delete from database
+    const noteIndex = notesStorage.findIndex(n => n.id === id);
+
+    if (noteIndex === -1) {
+      return res.status(404).json({ error: 'Note not found' });
+    }
+
+    notesStorage.splice(noteIndex, 1);
+
     logger.info(`Note deleted: ${id}`);
 
     return res.json({

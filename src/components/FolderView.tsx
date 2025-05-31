@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FolderOpen, 
   FileText, 
@@ -10,84 +9,132 @@ import {
   Filter,
   MoreVertical,
   Star,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
+import { apiService } from '../services/api';
 
 interface FolderViewProps {
   onModuleChange: (module: string) => void;
+}
+
+interface Item {
+  id: string;
+  type: 'pdf' | 'note' | 'mindmap';
+  title: string;
+  folder: string;
+  modified: string;
+  starred: boolean;
+  size: string;
+}
+
+interface Folder {
+  id: string;
+  name: string;
+  count: number;
+  color: string;
 }
 
 const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
   const [activeFolder, setActiveFolder] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const [items, setItems] = useState<Item[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([
+    { id: 'all', name: 'All Items', count: 0, color: 'bg-slate-500' },
+    { id: 'gs1', name: 'General Studies I', count: 0, color: 'bg-blue-500' },
+    { id: 'gs2', name: 'General Studies II', count: 0, color: 'bg-green-500' },
+    { id: 'gs3', name: 'General Studies III', count: 0, color: 'bg-purple-500' },
+    { id: 'gs4', name: 'General Studies IV', count: 0, color: 'bg-orange-500' },
+    { id: 'optional', name: 'Optional Subject', count: 0, color: 'bg-red-500' },
+    { id: 'essay', name: 'Essay Writing', count: 0, color: 'bg-pink-500' },
+  ]);
+  const [loading, setLoading] = useState(true);
 
-  const folders = [
-    { id: 'all', name: 'All Items', count: 89, color: 'bg-slate-500' },
-    { id: 'gs1', name: 'General Studies I', count: 23, color: 'bg-blue-500' },
-    { id: 'gs2', name: 'General Studies II', count: 18, color: 'bg-green-500' },
-    { id: 'gs3', name: 'General Studies III', count: 15, color: 'bg-purple-500' },
-    { id: 'gs4', name: 'General Studies IV', count: 12, color: 'bg-orange-500' },
-    { id: 'optional', name: 'Optional Subject', count: 16, color: 'bg-red-500' },
-    { id: 'essay', name: 'Essay Writing', count: 5, color: 'bg-pink-500' },
-  ];
+  useEffect(() => {
+    loadItems();
+  }, []);
 
-  const items = [
-    {
-      id: 1,
-      type: 'pdf',
-      title: 'Indian Polity - Laxmikanth Chapter 5',
-      folder: 'gs2',
-      modified: '2 hours ago',
-      starred: true,
-      size: '2.4 MB'
-    },
-    {
-      id: 2,
-      type: 'note',
-      title: 'Constitutional Amendments Notes',
-      folder: 'gs2',
-      modified: '1 day ago',
-      starred: false,
-      size: '156 KB'
-    },
-    {
-      id: 3,
-      type: 'mindmap',
-      title: 'Fundamental Rights Mind Map',
-      folder: 'gs2',
-      modified: '2 days ago',
-      starred: true,
-      size: '89 KB'
-    },
-    {
-      id: 4,
-      type: 'pdf',
-      title: 'Ancient History - NCERT',
-      folder: 'gs1',
-      modified: '3 days ago',
-      starred: false,
-      size: '5.1 MB'
-    },
-    {
-      id: 5,
-      type: 'note',
-      title: 'Economic Survey Summary',
-      folder: 'gs3',
-      modified: '1 week ago',
-      starred: true,
-      size: '234 KB'
-    },
-    {
-      id: 6,
-      type: 'mindmap',
-      title: 'Ethics Framework',
-      folder: 'gs4',
-      modified: '1 week ago',
-      starred: false,
-      size: '67 KB'
+  const loadItems = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch notes and PDFs
+      const [notesResponse, pdfsResponse] = await Promise.all([
+        apiService.getNotes(),
+        apiService.getPDFs()
+      ]);
+
+      const allItems: Item[] = [];
+
+      // Process notes
+      if (notesResponse.success && notesResponse.data) {
+        const noteItems: Item[] = notesResponse.data.map((note: any) => ({
+          id: note.id,
+          type: (note.type === 'canvas' ? 'note' : 'mindmap') as 'note' | 'mindmap',
+          title: note.title,
+          folder: note.folderId || 'all',
+          modified: formatRelativeTime(note.updatedAt),
+          starred: false, // TODO: Implement starring functionality
+          size: note.type === 'canvas' ? '156 KB' : '89 KB' // Estimate
+        }));
+        allItems.push(...noteItems);
+      }
+
+      // Process PDFs
+      if (pdfsResponse.success && pdfsResponse.data) {
+        const pdfItems = pdfsResponse.data.map((pdf: any) => ({
+          id: pdf.id,
+          type: 'pdf' as const,
+          title: pdf.filename.replace('.pdf', ''),
+          folder: 'all', // PDFs don't have folders yet
+          modified: formatRelativeTime(pdf.uploadedAt),
+          starred: false,
+          size: formatFileSize(pdf.size)
+        }));
+        allItems.push(...pdfItems);
+      }
+
+      setItems(allItems);
+
+      // Update folder counts
+      const updatedFolders = folders.map(folder => {
+        if (folder.id === 'all') {
+          return { ...folder, count: allItems.length };
+        }
+        const count = allItems.filter(item => item.folder === folder.id).length;
+        return { ...folder, count };
+      });
+      setFolders(updatedFolders);
+
+    } catch (error) {
+      console.error('Failed to load items:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const formatRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return 'Just now';
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    
+    return date.toLocaleDateString();
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   const getItemIcon = (type: string) => {
     switch (type) {
@@ -112,6 +159,17 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
     const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFolder && matchesSearch;
   });
+
+  if (loading) {
+    return (
+      <div className="h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-slate-600">Loading your files...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-slate-50 flex">
@@ -198,61 +256,31 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
 
         {/* Content */}
         <div className="flex-1 p-6 overflow-auto">
-          {viewMode === 'grid' ? (
-            <div className="grid grid-cols-4 gap-4">
-              {filteredItems.map((item) => {
-                const Icon = getItemIcon(item.type);
-                const colorClass = getItemColor(item.type);
-                
-                return (
-                  <div
-                    key={item.id}
-                    className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-all duration-200 cursor-pointer group"
-                    onClick={() => {
-                      if (item.type === 'pdf') onModuleChange('pdf-reader');
-                      else if (item.type === 'note') onModuleChange('canvas');
-                      else if (item.type === 'mindmap') onModuleChange('mindmap');
-                    }}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClass}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      
-                      <div className="flex items-center space-x-1">
-                        {item.starred && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
-                        <button className="p-1 text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <h3 className="font-medium text-slate-900 mb-2 line-clamp-2">{item.title}</h3>
-                    
-                    <div className="flex items-center justify-between text-sm text-slate-500">
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{item.modified}</span>
-                      </div>
-                      <span>{item.size}</span>
-                    </div>
-                  </div>
-                );
-              })}
+          {filteredItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+              <FolderOpen className="w-16 h-16 mb-4 text-slate-300" />
+              <h3 className="text-xl font-medium mb-2">No items found</h3>
+              <p className="text-center mb-6">
+                {searchQuery ? 'No items match your search.' : 'Start by uploading a PDF or creating a note.'}
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => onModuleChange('pdf-reader')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Upload PDF
+                </button>
+                <button
+                  onClick={() => onModuleChange('canvas')}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Create Note
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="border-b border-slate-200 p-4 bg-slate-50">
-                <div className="grid grid-cols-12 gap-4 text-sm font-medium text-slate-600">
-                  <div className="col-span-6">Name</div>
-                  <div className="col-span-2">Type</div>
-                  <div className="col-span-2">Modified</div>
-                  <div className="col-span-1">Size</div>
-                  <div className="col-span-1"></div>
-                </div>
-              </div>
-              
-              <div className="divide-y divide-slate-200">
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-4 gap-4">
                 {filteredItems.map((item) => {
                   const Icon = getItemIcon(item.type);
                   const colorClass = getItemColor(item.type);
@@ -260,47 +288,101 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
                   return (
                     <div
                       key={item.id}
-                      className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
+                      className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-all duration-200 cursor-pointer group"
                       onClick={() => {
                         if (item.type === 'pdf') onModuleChange('pdf-reader');
                         else if (item.type === 'note') onModuleChange('canvas');
                         else if (item.type === 'mindmap') onModuleChange('mindmap');
                       }}
                     >
-                      <div className="grid grid-cols-12 gap-4 items-center">
-                        <div className="col-span-6 flex items-center space-x-3">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorClass}`}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <span className="font-medium text-slate-900">{item.title}</span>
-                            {item.starred && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
-                          </div>
+                      <div className="flex items-start justify-between mb-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClass}`}>
+                          <Icon className="w-5 h-5" />
                         </div>
                         
-                        <div className="col-span-2">
-                          <span className="text-sm text-slate-600 capitalize">{item.type}</span>
-                        </div>
-                        
-                        <div className="col-span-2">
-                          <span className="text-sm text-slate-600">{item.modified}</span>
-                        </div>
-                        
-                        <div className="col-span-1">
-                          <span className="text-sm text-slate-600">{item.size}</span>
-                        </div>
-                        
-                        <div className="col-span-1 flex justify-end">
+                        <div className="flex items-center space-x-1">
+                          {item.starred && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
                           <button className="p-1 text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
                             <MoreVertical className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
+                      
+                      <h3 className="font-medium text-slate-900 mb-2 line-clamp-2">{item.title}</h3>
+                      
+                      <div className="flex items-center justify-between text-sm text-slate-500">
+                        <div className="flex items-center space-x-1">
+                          <Clock className="w-3 h-3" />
+                          <span>{item.modified}</span>
+                        </div>
+                        <span>{item.size}</span>
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="border-b border-slate-200 p-4 bg-slate-50">
+                  <div className="grid grid-cols-12 gap-4 text-sm font-medium text-slate-600">
+                    <div className="col-span-6">Name</div>
+                    <div className="col-span-2">Type</div>
+                    <div className="col-span-2">Modified</div>
+                    <div className="col-span-1">Size</div>
+                    <div className="col-span-1"></div>
+                  </div>
+                </div>
+                
+                <div className="divide-y divide-slate-200">
+                  {filteredItems.map((item) => {
+                    const Icon = getItemIcon(item.type);
+                    const colorClass = getItemColor(item.type);
+                    
+                    return (
+                      <div
+                        key={item.id}
+                        className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
+                        onClick={() => {
+                          if (item.type === 'pdf') onModuleChange('pdf-reader');
+                          else if (item.type === 'note') onModuleChange('canvas');
+                          else if (item.type === 'mindmap') onModuleChange('mindmap');
+                        }}
+                      >
+                        <div className="grid grid-cols-12 gap-4 items-center">
+                          <div className="col-span-6 flex items-center space-x-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${colorClass}`}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-slate-900">{item.title}</span>
+                              {item.starred && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
+                            </div>
+                          </div>
+                          
+                          <div className="col-span-2">
+                            <span className="text-sm text-slate-600 capitalize">{item.type}</span>
+                          </div>
+                          
+                          <div className="col-span-2">
+                            <span className="text-sm text-slate-600">{item.modified}</span>
+                          </div>
+                          
+                          <div className="col-span-1">
+                            <span className="text-sm text-slate-600">{item.size}</span>
+                          </div>
+                          
+                          <div className="col-span-1 flex justify-end">
+                            <button className="p-1 text-slate-400 hover:text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )
           )}
         </div>
       </div>

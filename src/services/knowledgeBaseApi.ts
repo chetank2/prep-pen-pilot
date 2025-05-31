@@ -1,0 +1,100 @@
+import { KnowledgeCategory, KnowledgeItem, GeneratedContent } from '../types/knowledgeBase';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+class KnowledgeBaseAPI {
+  private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    const response = await fetch(`${API_BASE_URL}/knowledge-base${endpoint}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+      ...options,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Network error' }));
+      throw new Error(error.error || 'Request failed');
+    }
+
+    return response.json();
+  }
+
+  async getCategories(): Promise<KnowledgeCategory[]> {
+    return this.request<KnowledgeCategory[]>('/categories');
+  }
+
+  async getKnowledgeItems(userId: string, categoryId?: string): Promise<KnowledgeItem[]> {
+    const params = new URLSearchParams({ userId });
+    if (categoryId) params.append('categoryId', categoryId);
+    
+    return this.request<KnowledgeItem[]>(`/items?${params}`);
+  }
+
+  async getKnowledgeItem(id: string): Promise<KnowledgeItem> {
+    return this.request<KnowledgeItem>(`/items/${id}`);
+  }
+
+  async uploadFile(
+    file: File,
+    userId: string,
+    categoryId: string,
+    title: string,
+    description?: string,
+    onProgress?: (progress: number) => void
+  ): Promise<KnowledgeItem> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', userId);
+    formData.append('categoryId', categoryId);
+    formData.append('title', title);
+    if (description) formData.append('description', description);
+
+    const xhr = new XMLHttpRequest();
+    
+    return new Promise((resolve, reject) => {
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable && onProgress) {
+          const progress = (event.loaded / event.total) * 100;
+          onProgress(progress);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText));
+        } else {
+          reject(new Error('Upload failed'));
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject(new Error('Upload failed'));
+      });
+
+      xhr.open('POST', `${API_BASE_URL}/knowledge-base/upload`);
+      xhr.send(formData);
+    });
+  }
+
+  async generateMindmap(itemId: string, subject?: string): Promise<GeneratedContent> {
+    return this.request<GeneratedContent>(`/items/${itemId}/generate-mindmap`, {
+      method: 'POST',
+      body: JSON.stringify({ subject }),
+    });
+  }
+
+  async generateNotes(itemId: string, subject?: string): Promise<GeneratedContent> {
+    return this.request<GeneratedContent>(`/items/${itemId}/generate-notes`, {
+      method: 'POST',
+      body: JSON.stringify({ subject }),
+    });
+  }
+
+  async getGeneratedContent(itemId: string, type?: string): Promise<GeneratedContent[]> {
+    const params = type ? `?type=${type}` : '';
+    return this.request<GeneratedContent[]>(`/items/${itemId}/generated-content${params}`);
+  }
+}
+
+export const knowledgeBaseAPI = new KnowledgeBaseAPI(); 
