@@ -31,6 +31,17 @@
   to = "/.netlify/functions/chat-message"
   status = 200
 
+# Legacy API redirects for backward compatibility
+[[redirects]]
+  from = "/api/pdf"
+  to = "/.netlify/functions/pdf"
+  status = 200
+
+[[redirects]]
+  from = "/api/notes"
+  to = "/.netlify/functions/notes"
+  status = 200
+
 # SPA fallback
 [[redirects]]
   from = "/*"
