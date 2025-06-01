@@ -50,7 +50,20 @@ const SimpleChatInterface = () => {
     <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
       {/* Sidebar */}
       <div style={{ width: '300px', borderRight: '1px solid #ccc', padding: '20px' }}>
-        <h2>Knowledge Folders</h2>
+        <h2>UPSC Prep Assistant</h2>
+        
+        {/* Navigation to Knowledge Base */}
+        <div style={{ marginBottom: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px', border: '1px solid #2196f3' }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#1976d2', fontSize: '16px' }}>📚 Knowledge Base</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#424242' }}>
+            Manage your uploaded documents, create categories, and organize study materials.
+          </p>
+          <p style={{ margin: '0', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>
+            💡 Note: Navigate to the Knowledge Base by typing "knowledge base" or "upload files" in the chat!
+          </p>
+        </div>
+
+        <h3>Study Folders</h3>
         <div style={{ marginBottom: '20px' }}>
           <div style={{ padding: '10px', background: '#f0f0f0', borderRadius: '5px', marginBottom: '10px', cursor: 'pointer' }}>
             General Chat
@@ -77,13 +90,58 @@ const SimpleChatInterface = () => {
             <div style={{ textAlign: 'center', marginTop: '100px' }}>
               <h3>Welcome to your AI Knowledge Assistant</h3>
               <p>Ask questions, upload files, or request AI-generated content like mindmaps, summaries, and study notes.</p>
+              <div style={{ marginTop: '20px' }}>
+                <h4>Quick Actions:</h4>
+                <button
+                  onClick={() => setInputMessage('Show me the knowledge base')}
+                  style={{
+                    padding: '10px 20px',
+                    margin: '5px',
+                    backgroundColor: '#2196f3',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📚 Access Knowledge Base
+                </button>
+                <button
+                  onClick={() => setInputMessage('Create a study plan for History')}
+                  style={{
+                    padding: '10px 20px',
+                    margin: '5px',
+                    backgroundColor: '#4caf50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📖 Create Study Plan
+                </button>
+                <button
+                  onClick={() => setInputMessage('Help me with Geography concepts')}
+                  style={{
+                    padding: '10px 20px',
+                    margin: '5px',
+                    backgroundColor: '#ff9800',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🗺️ Geography Help
+                </button>
+              </div>
             </div>
           ) : (
             messages.map((message, index) => (
               <div key={index} style={{ 
                 marginBottom: '20px', 
-                display: 'flex', 
-                justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start' 
+                display: 'flex',
+                justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start'
               }}>
                 <div style={{
                   maxWidth: '70%',
@@ -106,7 +164,7 @@ const SimpleChatInterface = () => {
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Ask a question or upload files..."
+              placeholder="Ask a question, request access to Knowledge Base, or upload files..."
               style={{
                 flex: 1,
                 padding: '15px',
