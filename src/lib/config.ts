@@ -1,215 +1,109 @@
-// Environment configuration for the frontend application
+// Unified configuration for API endpoints and environment variables
 
-export const isDevelopment = import.meta.env.MODE === 'development';
-export const isProduction = import.meta.env.MODE === 'production';
+// Environment detection
+const isDevelopment = import.meta.env.DEV;
+const isNetlifyProduction = window.location.hostname.includes('netlify.app');
 
 // API Configuration
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+export const API_CONFIG = {
+  // Base URLs for different environments
+  DEVELOPMENT_API: 'http://localhost:3001/api',
+  NETLIFY_API: '/api', // Uses Netlify redirects
+  
+  // Current API base URL
+  BASE_URL: isDevelopment 
+    ? (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
+    : '/api', // Always use Netlify functions in production
+  
+  // Feature flags
+  USE_BACKEND_FALLBACK: isDevelopment,
+  USE_NETLIFY_FUNCTIONS: !isDevelopment || isNetlifyProduction,
+};
 
 // Supabase Configuration
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-// Frontend Configuration
-export const APP_CONFIG = {
-  // App Information
-  name: 'UPSC Prep Assistant',
-  version: '2.0.0',
-  description: 'AI-powered knowledge management for UPSC preparation',
-
-  // Chat Configuration
-  chat: {
-    maxMessageLength: 4000,
-    maxFileSize: 100 * 1024 * 1024, // 100MB
-    allowedFileTypes: [
-      'application/pdf',
-      'text/plain',
-      'text/markdown',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ],
-    maxFilesPerMessage: 5,
-    messageSuggestions: [
-      'Summarize this document',
-      'Create study notes',
-      'Generate a mind map',
-      'Explain key concepts',
-      'Create practice questions'
-    ]
-  },
-
-  // Folder Configuration
-  folders: {
-    maxFolders: 50,
-    maxDepth: 5,
-    defaultColors: [
-      '#3B82F6', // blue
-      '#F59E0B', // amber
-      '#84CC16', // lime
-      '#EC4899', // pink
-      '#06B6D4', // cyan
-      '#8B5CF6', // violet
-      '#EF4444', // red
-      '#10B981', // emerald
-    ],
-    defaultIcons: [
-      'folder',
-      'book',
-      'graduation-cap',
-      'scroll',
-      'map',
-      'balance-scale',
-      'trending-up',
-      'file-text',
-      'brain',
-      'chart'
-    ]
-  },
-
-  // Upload Configuration
-  upload: {
-    maxFileSize: 100 * 1024 * 1024, // 100MB
-    allowedTypes: [
-      'application/pdf',
-      'text/plain',
-      'text/markdown',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-    ],
-    compressionQuality: 85,
-    preserveOriginal: true
-  },
-
-  // UI Configuration
-  ui: {
-    theme: 'light',
-    sidebarWidth: 280,
-    chatWidth: 400,
-    animations: true,
-    compactMode: false
-  },
-
-  // Storage Configuration
-  storage: {
-    cacheTimeout: 5 * 60 * 1000, // 5 minutes
-    maxCacheSize: 50 * 1024 * 1024, // 50MB
-    persistSession: true
-  }
+export const SUPABASE_CONFIG = {
+  URL: import.meta.env.VITE_SUPABASE_URL,
+  ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
+  IS_CONFIGURED: !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY),
 };
 
 // API Endpoints
 export const API_ENDPOINTS = {
-  // Chat endpoints
-  chat: {
-    sessions: '/chat/sessions',
-    messages: '/chat/sessions/{sessionId}/messages',
-    generate: '/chat/generate',
-    saveContent: '/chat/save-content'
+  KNOWLEDGE_BASE: {
+    CATEGORIES: '/knowledge-base/categories',
+    ITEMS: '/knowledge-base/items',
+    UPLOAD: '/knowledge-base/upload',
+    COMPRESSION_STATS: '/knowledge-base/compression-stats',
   },
-
-  // Folder endpoints
-  folders: {
-    base: '/folders',
-    contents: '/folders/{folderId}/contents',
-    stats: '/folders/{folderId}/stats'
+  CHAT: {
+    MESSAGE: '/chat/message',
+    SESSIONS: '/chat/sessions',
   },
-
-  // Knowledge base endpoints
-  knowledgeBase: {
-    items: '/knowledge-base/items',
-    categories: '/knowledge-base/categories',
-    upload: '/knowledge-base/upload',
-    search: '/knowledge-base/search'
+  DEBUG: {
+    CATEGORIES: '/debug/categories',
+    FRONTEND_CONFIG: '/test/frontend-config',
   },
+  LEGACY: {
+    PDF: '/pdf',
+    NOTES: '/notes',
+  },
+};
 
-  // Generated content endpoints
-  generatedContent: {
-    base: '/knowledge-base/generated-content',
-    mindmap: '/knowledge-base/generate/mindmap',
-    notes: '/knowledge-base/generate/notes',
-    summary: '/knowledge-base/generate/summary'
+// Helper function to get full API URL
+export const getApiUrl = (endpoint: string): string => {
+  return `${API_CONFIG.BASE_URL}${endpoint}`;
+};
+
+// Helper function to check if backend is available
+export const checkBackendAvailability = async (): Promise<boolean> => {
+  if (!API_CONFIG.USE_BACKEND_FALLBACK) return false;
+  
+  try {
+    const response = await fetch(`${API_CONFIG.DEVELOPMENT_API}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(3000)
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 };
 
-// Helper function to replace URL parameters
-export function buildApiUrl(endpoint: string, params: Record<string, string> = {}): string {
-  let url = `${API_BASE_URL}${endpoint}`;
-  
-  for (const [key, value] of Object.entries(params)) {
-    url = url.replace(`{${key}}`, value);
-  }
-  
-  return url;
-}
+// Storage Configuration
+export const STORAGE_CONFIG = {
+  BUCKETS: {
+    KNOWLEDGE_BASE: 'knowledge-base-files',
+    USER_CONTENT: 'user-content',
+    THUMBNAILS: 'thumbnails',
+    EXPORTS: 'exports',
+  },
+  MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB
+  ALLOWED_TYPES: ['pdf', 'doc', 'docx', 'txt', 'jpg', 'jpeg', 'png', 'gif', 'mp4', 'mp3', 'wav'],
+};
 
-// Helper function to get file type from MIME type
-export function getFileTypeFromMime(mimeType: string): string {
-  const typeMap: Record<string, string> = {
-    'application/pdf': 'PDF',
-    'text/plain': 'Text',
-    'text/markdown': 'Markdown',
-    'image/jpeg': 'Image',
-    'image/png': 'Image',
-    'image/gif': 'Image',
-    'image/webp': 'Image',
-    'application/msword': 'Word Document',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'Word Document',
-    'application/vnd.ms-powerpoint': 'PowerPoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'PowerPoint'
-  };
-  
-  return typeMap[mimeType] || 'Unknown';
-}
+// App Configuration
+export const APP_CONFIG = {
+  NAME: 'PrepPen Pilot',
+  VERSION: '2.0.0',
+  ENVIRONMENT: isDevelopment ? 'development' : 'production',
+  DEBUG_MODE: isDevelopment,
+};
 
-// Helper function to format file size
-export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
+// Rate Limiting Configuration
+export const RATE_LIMIT_CONFIG = {
+  WINDOW_MS: 15 * 60 * 1000, // 15 minutes
+  MAX_REQUESTS: 100,
+  UPLOAD_LIMIT: 50,
+  CHAT_LIMIT: 200,
+};
 
-// Helper function to validate file
-export function validateFile(file: File): { valid: boolean; error?: string } {
-  if (!APP_CONFIG.upload.allowedTypes.includes(file.type)) {
-    return {
-      valid: false,
-      error: `File type ${getFileTypeFromMime(file.type)} is not supported`
-    };
-  }
-  
-  if (file.size > APP_CONFIG.upload.maxFileSize) {
-    return {
-      valid: false,
-      error: `File size ${formatFileSize(file.size)} exceeds limit of ${formatFileSize(APP_CONFIG.upload.maxFileSize)}`
-    };
-  }
-  
-  return { valid: true };
-}
-
-// Environment check
-export function checkEnvironment(): {
-  supabaseConfigured: boolean;
-  apiConfigured: boolean;
-  development: boolean;
-} {
-  return {
-    supabaseConfigured: !!(SUPABASE_URL && SUPABASE_ANON_KEY),
-    apiConfigured: !!API_BASE_URL,
-    development: isDevelopment
-  };
-} 
+export default {
+  API_CONFIG,
+  SUPABASE_CONFIG,
+  API_ENDPOINTS,
+  STORAGE_CONFIG,
+  APP_CONFIG,
+  RATE_LIMIT_CONFIG,
+  getApiUrl,
+  checkBackendAvailability,
+}; 

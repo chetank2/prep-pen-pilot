@@ -1,4 +1,4 @@
-const API_BASE_URL = '/api';
+import { API_CONFIG, getApiUrl, checkBackendAvailability } from '../lib/config';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -38,7 +38,9 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     try {
-      const url = `${API_BASE_URL}${endpoint}`;
+      // Use the unified configuration to get the proper API URL
+      const url = getApiUrl(endpoint);
+      
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
@@ -63,13 +65,24 @@ class ApiService {
     }
   }
 
+  // Check if we should use backend or Netlify functions
+  private async getApiBaseUrl(): Promise<string> {
+    if (API_CONFIG.USE_NETLIFY_FUNCTIONS) {
+      return API_CONFIG.BASE_URL;
+    }
+    
+    const backendAvailable = await checkBackendAvailability();
+    return backendAvailable ? API_CONFIG.DEVELOPMENT_API : API_CONFIG.BASE_URL;
+  }
+
   // PDF Operations
   async uploadPDF(file: File): Promise<ApiResponse<PDFMetadata>> {
     const formData = new FormData();
     formData.append('pdf', file);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/pdf/upload`, {
+      const baseUrl = await this.getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/pdf/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -126,7 +139,7 @@ class ApiService {
     });
   }
 
-  // Notes Operations
+  // Notes Operations - Updated to use new endpoint structure
   async saveCanvasNote(title: string, imageData: string, tags: string[] = [], folderId?: string): Promise<ApiResponse<Note>> {
     return this.request(`/notes/canvas`, {
       method: 'POST',
@@ -164,6 +177,20 @@ class ApiService {
     return this.request(`/notes/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Health check for backend availability
+  async healthCheck(): Promise<boolean> {
+    try {
+      const baseUrl = await this.getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000)
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
   }
 }
 

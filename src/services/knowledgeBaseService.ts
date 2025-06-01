@@ -10,17 +10,13 @@ import {
   ChatMessage,
   GeneratedContent
 } from '../types/knowledgeBase';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+import { API_CONFIG, getApiUrl, checkBackendAvailability, API_ENDPOINTS } from '../lib/config';
 
 // Check if backend is available
 async function isBackendAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/folders`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(5000)
-    });
-    return response.ok;
+    if (!API_CONFIG.USE_BACKEND_FALLBACK) return false;
+    return await checkBackendAvailability();
   } catch {
     return false;
   }
@@ -31,11 +27,26 @@ export class KnowledgeBaseService {
   // Category Management
   static async getCategories(): Promise<KnowledgeCategory[]> {
     try {
-      // Try Supabase first
+      // Try Netlify function first, then Supabase fallback
+      const url = getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.CATEGORIES);
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const result = await response.json();
+        return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
+      }
+      
+      // Fallback to direct Supabase
       return await dbHelpers.getCategories();
     } catch (error) {
       console.error('Failed to fetch categories:', error);
-      throw new Error('Unable to fetch categories. Please check your connection.');
+      // Final fallback to Supabase
+      try {
+        return await dbHelpers.getCategories();
+      } catch (fallbackError) {
+        console.error('Supabase fallback also failed:', fallbackError);
+        throw new Error('Unable to fetch categories. Please check your connection.');
+      }
     }
   }
 
@@ -60,27 +71,27 @@ export class KnowledgeBaseService {
   ): Promise<KnowledgeItem> {
     const backendAvailable = await isBackendAvailable();
     
-    if (!backendAvailable) {
-      throw new Error('Backend service is not available. Please try again later.');
-    }
-
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('uploadData', JSON.stringify(uploadData));
 
-      const response = await fetch(`${API_BASE_URL}/knowledge-base/upload`, {
+      const url = backendAvailable 
+        ? `${API_CONFIG.DEVELOPMENT_API}/knowledge-base/upload`
+        : getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.UPLOAD);
+
+      const response = await fetch(url, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Upload failed');
+        throw new Error(errorData.message || errorData.error || 'Upload failed');
       }
 
       const result = await response.json();
-      return result.data;
+      return result.data || result;
     } catch (error) {
       console.error('File upload failed:', error);
       throw error;
@@ -89,41 +100,23 @@ export class KnowledgeBaseService {
 
   // Knowledge Items Management
   static async getKnowledgeItems(filters?: SearchFilters): Promise<KnowledgeItem[]> {
-    const backendAvailable = await isBackendAvailable();
-    
-    if (!backendAvailable) {
-      // Fallback to direct Supabase
-      try {
-        return await dbHelpers.getKnowledgeItems(filters);
-      } catch (error) {
-        console.error('Failed to fetch knowledge items from Supabase:', error);
-        throw new Error('Unable to fetch knowledge items. Please check your connection.');
-      }
-    }
-
     try {
-      // Build query parameters
+      // Try Netlify function first
       const params = new URLSearchParams();
-      
       if (filters?.categoryId) {
         params.append('categoryId', filters.categoryId);
       }
 
-      const response = await fetch(`${API_BASE_URL}/knowledge-base/items?${params}`);
+      const url = getApiUrl(`${API_ENDPOINTS.KNOWLEDGE_BASE.ITEMS}?${params}`);
+      const response = await fetch(url);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch knowledge items');
-      }
-
-      const result = await response.json();
-      
-      // Handle different response formats
-      if (result.success === false) {
-        throw new Error(result.message || 'API returned error');
+      if (response.ok) {
+        const result = await response.json();
+        return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
       }
       
-      // Return the data array, ensuring it's always an array
-      return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
+      // Fallback to direct Supabase
+      return await dbHelpers.getKnowledgeItems(filters);
     } catch (error) {
       console.error('Failed to fetch knowledge items:', error);
       // Fallback to direct Supabase
@@ -201,61 +194,54 @@ export class KnowledgeBaseService {
   }
 
   private static calculateSearchFacets(items: KnowledgeItem[]) {
-    const categories = new Map<string, { id: string; name: string; count: number }>();
+    const categories = new Map<string, number>();
+    const fileTypes = new Map<string, number>();
     const subjects = new Map<string, number>();
-    const contentTypes = new Map<string, number>();
-    const tags = new Map<string, number>();
 
     items.forEach(item => {
-      // Categories
-      if (item.knowledge_categories) {
-        const cat = item.knowledge_categories as any;
-        const key = item.category_id;
-        if (!categories.has(key)) {
-          categories.set(key, { id: key, name: cat.name, count: 0 });
-        }
-        categories.get(key)!.count++;
+      // Count categories
+      if (item.knowledge_categories?.name) {
+        const count = categories.get(item.knowledge_categories.name) || 0;
+        categories.set(item.knowledge_categories.name, count + 1);
       }
 
-      // Subjects
-      if (item.metadata?.subject) {
-        subjects.set(item.metadata.subject, (subjects.get(item.metadata.subject) || 0) + 1);
+      // Count file types
+      if (item.file_type) {
+        const count = fileTypes.get(item.file_type) || 0;
+        fileTypes.set(item.file_type, count + 1);
       }
 
-      // Content types
-      if (item.custom_category_type) {
-        contentTypes.set(item.custom_category_type, (contentTypes.get(item.custom_category_type) || 0) + 1);
-      }
-
-      // Tags
-      if (item.metadata?.tags) {
-        item.metadata.tags.forEach(tag => {
-          tags.set(tag, (tags.get(tag) || 0) + 1);
-        });
+      // Count subjects from metadata
+      const subject = item.metadata?.subject;
+      if (subject) {
+        const count = subjects.get(subject) || 0;
+        subjects.set(subject, count + 1);
       }
     });
 
     return {
-      categories: Array.from(categories.values()),
+      categories: Array.from(categories.entries()).map(([name, count]) => ({ name, count })),
+      fileTypes: Array.from(fileTypes.entries()).map(([name, count]) => ({ name, count })),
       subjects: Array.from(subjects.entries()).map(([name, count]) => ({ name, count })),
-      contentTypes: Array.from(contentTypes.entries()).map(([type, count]) => ({ type, count })),
-      tags: Array.from(tags.entries()).map(([tag, count]) => ({ tag, count })),
     };
   }
 
-  // AI Content Generation
+  // Generated Content (AI Features)
   static async generateMindmap(knowledgeItemId: string, subject?: string): Promise<GeneratedContent> {
+    const backendAvailable = await isBackendAvailable();
+    
+    if (!backendAvailable) {
+      throw new Error('AI features require backend service. Please enable backend or implement in Netlify functions.');
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/ai/generate-mindmap`, {
+      const response = await fetch(`${API_CONFIG.DEVELOPMENT_API}/knowledge-base/items/${knowledgeItemId}/generate-mindmap`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ knowledgeItemId, subject }),
+        body: JSON.stringify({ subject }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate mindmap');
-      }
-
+      if (!response.ok) throw new Error('Failed to generate mindmap');
       const result = await response.json();
       return result.data;
     } catch (error) {
@@ -265,17 +251,20 @@ export class KnowledgeBaseService {
   }
 
   static async generateNotes(knowledgeItemId: string, subject?: string): Promise<GeneratedContent> {
+    const backendAvailable = await isBackendAvailable();
+    
+    if (!backendAvailable) {
+      throw new Error('AI features require backend service. Please enable backend or implement in Netlify functions.');
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/ai/generate-notes`, {
+      const response = await fetch(`${API_CONFIG.DEVELOPMENT_API}/knowledge-base/items/${knowledgeItemId}/generate-notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ knowledgeItemId, subject }),
+        body: JSON.stringify({ subject }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate notes');
-      }
-
+      if (!response.ok) throw new Error('Failed to generate notes');
       const result = await response.json();
       return result.data;
     } catch (error) {
@@ -286,29 +275,34 @@ export class KnowledgeBaseService {
 
   static async generateSummary(knowledgeItemId: string): Promise<GeneratedContent> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ai/generate-summary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ knowledgeItemId }),
-      });
+      const { data, error } = await supabase
+        .from('generated_content')
+        .insert({
+          knowledge_item_id: knowledgeItemId,
+          content_type: 'summary',
+          title: 'AI Generated Summary',
+          content_data: {
+            summary: 'This is a placeholder summary. AI integration needs to be implemented.',
+            keyPoints: ['Key point 1', 'Key point 2', 'Key point 3'],
+            wordCount: 0,
+          },
+        })
+        .select()
+        .single();
 
-      if (!response.ok) {
-        throw new Error('Failed to generate summary');
-      }
-
-      const result = await response.json();
-      return result.data;
+      if (error) throw error;
+      return data;
     } catch (error) {
       console.error('Summary generation failed:', error);
       throw error;
     }
   }
 
-  // User Generated Content
+  // User Content Management
   static async getUserContent(knowledgeItemId: string, contentType?: string): Promise<GeneratedContent[]> {
     try {
       let query = supabase
-        .from('user_content')
+        .from('generated_content')
         .select('*')
         .eq('knowledge_item_id', knowledgeItemId)
         .order('created_at', { ascending: false });
@@ -329,7 +323,7 @@ export class KnowledgeBaseService {
   static async saveUserContent(content: Omit<GeneratedContent, 'id' | 'created_at' | 'updated_at'>): Promise<GeneratedContent> {
     try {
       const { data, error } = await supabase
-        .from('user_content')
+        .from('generated_content')
         .insert(content)
         .select()
         .single();
@@ -342,28 +336,38 @@ export class KnowledgeBaseService {
     }
   }
 
-  // Chat Functionality
+  // Chat Integration
   static async getChatConversations(): Promise<ChatConversation[]> {
     try {
+      const url = getApiUrl(API_ENDPOINTS.CHAT.MESSAGE);
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const result = await response.json();
+        return Array.isArray(result.data) ? result.data : [];
+      }
+      
+      // Fallback to direct Supabase
       const { data, error } = await supabase
-        .from('chat_conversations')
+        .from('chat_sessions')
         .select('*')
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Failed to fetch conversations:', error);
-      throw error;
+      console.error('Failed to fetch chat conversations:', error);
+      return [];
     }
   }
 
   static async createChatConversation(title?: string): Promise<ChatConversation> {
     try {
       const { data, error } = await supabase
-        .from('chat_conversations')
+        .from('chat_sessions')
         .insert({
-          title: title || 'New Conversation',
+          user_id: 'default-user', // Replace with actual user ID when auth is implemented
+          title: title || 'New Chat',
         })
         .select()
         .single();
@@ -371,7 +375,7 @@ export class KnowledgeBaseService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Failed to create conversation:', error);
+      console.error('Failed to create chat conversation:', error);
       throw error;
     }
   }
@@ -381,27 +385,23 @@ export class KnowledgeBaseService {
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
-        .eq('conversation_id', conversationId)
+        .eq('session_id', conversationId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.error('Failed to fetch messages:', error);
+      console.error('Failed to fetch chat messages:', error);
       throw error;
     }
   }
 
   static subscribeToChatMessages(conversationId: string, callback: (payload: any) => void) {
     return supabase
-      .channel(`chat_messages_${conversationId}`)
-      .on('postgres_changes', 
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'chat_messages',
-          filter: `conversation_id=eq.${conversationId}`
-        }, 
+      .channel(`chat_messages:${conversationId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `session_id=eq.${conversationId}` },
         callback
       )
       .subscribe();
@@ -411,17 +411,16 @@ export class KnowledgeBaseService {
     conversationId: string, 
     content: string
   ): Promise<{ userMessage: ChatMessage; assistantMessage: ChatMessage }> {
-    const backendAvailable = await isBackendAvailable();
-    
-    if (!backendAvailable) {
-      throw new Error('Chat service is not available. Please try again later.');
-    }
-
     try {
-      const response = await fetch(`${API_BASE_URL}/chat/message`, {
+      const url = getApiUrl(API_ENDPOINTS.CHAT.MESSAGE);
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, content }),
+        body: JSON.stringify({
+          sessionId: conversationId,
+          message: content,
+          role: 'user',
+        }),
       });
 
       if (!response.ok) {
@@ -429,14 +428,17 @@ export class KnowledgeBaseService {
       }
 
       const result = await response.json();
-      return result.data;
+      return {
+        userMessage: result.userMessage,
+        assistantMessage: result.assistantMessage,
+      };
     } catch (error) {
       console.error('Failed to send chat message:', error);
       throw error;
     }
   }
 
-  // Compression Statistics
+  // Compression Stats
   static async getCompressionStats(): Promise<{
     totalOriginalSize: number;
     totalCompressedSize: number;
@@ -449,54 +451,80 @@ export class KnowledgeBaseService {
     };
   }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/knowledge-base/compression-stats`);
+      const url = getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.COMPRESSION_STATS);
+      const response = await fetch(url);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch compression stats');
+      if (response.ok) {
+        const result = await response.json();
+        return result.data || result;
       }
+      
+      // Fallback calculation from knowledge items
+      const items = await this.getKnowledgeItems();
+      
+      const stats = items.reduce((acc, item) => {
+        const originalSize = item.file_size || 0;
+        const compressedSize = item.compressed_size || originalSize;
+        
+        acc.totalOriginalSize += originalSize;
+        acc.totalCompressedSize += compressedSize;
+        
+        return acc;
+      }, { totalOriginalSize: 0, totalCompressedSize: 0 });
 
-      const result = await response.json();
-      return result.data;
+      const totalSavings = stats.totalOriginalSize - stats.totalCompressedSize;
+      const averageCompressionRatio = stats.totalOriginalSize > 0 
+        ? (totalSavings / stats.totalOriginalSize) * 100 
+        : 0;
+
+      return {
+        ...stats,
+        totalSavings,
+        averageCompressionRatio,
+        formattedStats: {
+          totalOriginalSize: this.formatBytes(stats.totalOriginalSize),
+          totalCompressedSize: this.formatBytes(stats.totalCompressedSize),
+          totalSavings: this.formatBytes(totalSavings),
+        },
+      };
     } catch (error) {
       console.error('Failed to fetch compression stats:', error);
-      return {
-        totalOriginalSize: 0,
-        totalCompressedSize: 0,
-        totalSavings: 0,
-        averageCompressionRatio: 0,
-        formattedStats: {
-          totalOriginalSize: '0 Bytes',
-          totalCompressedSize: '0 Bytes',
-          totalSavings: '0 Bytes',
-        }
-      };
+      throw error;
     }
   }
 
-  // File Download
   static async downloadFile(knowledgeItemId: string): Promise<Blob> {
     try {
-      const response = await fetch(`${API_BASE_URL}/knowledge-base/download/${knowledgeItemId}`);
+      const item = await this.getKnowledgeItemById(knowledgeItemId);
       
-      if (!response.ok) {
-        throw new Error('Failed to download file');
+      if (!item.file_path) {
+        throw new Error('File path not found');
       }
 
-      return await response.blob();
+      // This would typically use Supabase Storage or backend file serving
+      throw new Error('File download not implemented yet');
     } catch (error) {
       console.error('File download failed:', error);
       throw error;
     }
   }
 
-  // Real-time subscriptions
   static subscribeToKnowledgeItems(callback: (payload: any) => void) {
     return supabase
-      .channel('knowledge_items_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'knowledge_items' }, 
+      .channel('knowledge_items')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'knowledge_items' },
         callback
       )
       .subscribe();
+  }
+
+  private static formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }
