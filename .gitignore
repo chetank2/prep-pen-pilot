@@ -12,6 +12,22 @@ dist
 dist-ssr
 *.local
 
+# Environment files (contain sensitive data)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+backend/.env.local
+backend/.env.backup
+
+# Uploads and temporary files
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/logs/*
+!backend/logs/.gitkeep
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
