@@ -11,12 +11,13 @@ import {
   GeneratedContent
 } from '../types/knowledgeBase';
 
-const API_BASE_URL = 'http://localhost:3001/api';
+// Use relative paths for Netlify Functions
+const API_BASE_URL = '/api';
 
 // Helper function to check if backend is available
 async function isBackendAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/health`, { 
+    const response = await fetch(`${API_BASE_URL}/knowledge-base/categories`, { 
       method: 'GET',
       signal: AbortSignal.timeout(3000) // 3 second timeout
     });
@@ -135,11 +136,36 @@ export class KnowledgeBaseService {
 
   // Knowledge Items Management
   static async getKnowledgeItems(filters?: SearchFilters): Promise<KnowledgeItem[]> {
+    const backendAvailable = await isBackendAvailable();
+    
+    if (!backendAvailable) {
+      // Fallback to direct Supabase or mock data
+      try {
+        return await dbHelpers.getKnowledgeItems(filters);
+      } catch (error) {
+        console.warn('Supabase not available, returning empty array:', error);
+        return [];
+      }
+    }
+
     try {
-      return await dbHelpers.getKnowledgeItems(filters);
+      const response = await fetch(`${API_BASE_URL}/knowledge-base/items`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch knowledge items');
+      }
+
+      const result = await response.json();
+      return result.data || [];
     } catch (error) {
       console.error('Failed to fetch knowledge items:', error);
-      throw error;
+      // Fallback to direct Supabase
+      try {
+        return await dbHelpers.getKnowledgeItems(filters);
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        return [];
+      }
     }
   }
 

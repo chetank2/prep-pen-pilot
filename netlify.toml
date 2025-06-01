@@ -1,0 +1,41 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[functions]
+  directory = "netlify/functions"
+
+# API redirects to Netlify Functions
+[[redirects]]
+  from = "/api/knowledge-base/categories"
+  to = "/.netlify/functions/knowledge-base-categories"
+  status = 200
+
+[[redirects]]
+  from = "/api/knowledge-base/items"
+  to = "/.netlify/functions/knowledge-base-items"
+  status = 200
+
+[[redirects]]
+  from = "/api/knowledge-base/upload"
+  to = "/.netlify/functions/knowledge-base-upload"
+  status = 200
+
+[[redirects]]
+  from = "/api/knowledge-base/compression-stats"
+  to = "/.netlify/functions/compression-stats"
+  status = 200
+
+[[redirects]]
+  from = "/api/chat/message"
+  to = "/.netlify/functions/chat-message"
+  status = 200
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[build.environment]
+  NODE_VERSION = "18" 
