@@ -4,6 +4,7 @@ import { SupabaseService } from '../services/supabaseService';
 import { OpenAIService } from '../services/OpenAIService';
 import { EnhancedFileUploadService } from '../services/enhancedFileUploadService';
 import { logger } from '../utils/logger';
+import { supabase } from '../config/supabase';
 
 const router = express.Router();
 const openaiService = new OpenAIService();
@@ -57,31 +58,52 @@ router.post('/sessions', async (req, res) => {
   }
 });
 
-// Get chat sessions
+// Get chat sessions for a user
 router.get('/sessions', async (req, res) => {
   try {
-    const userId = req.query.userId as string || '550e8400-e29b-41d4-a716-446655440000';
-    const folderId = req.query.folderId as string;
+    const userId = req.query.userId as string;
     
-    const sessions = await SupabaseService.getChatSessions(userId, folderId);
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
 
-    res.json({
-      success: true,
-      data: sessions,
+    const { data, error } = await supabase
+      .from('chat_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ 
+      success: true, 
+      data: data || [] 
     });
-  } catch (error) {
-    logger.error('Failed to fetch chat sessions:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch chat sessions',
+  } catch (error: any) {
+    console.error('Error fetching chat sessions:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch chat sessions' 
     });
   }
 });
 
-// Get chat messages
+// Get messages for a chat session
 router.get('/sessions/:sessionId/messages', async (req, res) => {
   try {
     const { sessionId } = req.params;
+    const userId = req.query.userId as string;
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
+
     const messages = await SupabaseService.getChatMessages(sessionId);
 
     res.json({

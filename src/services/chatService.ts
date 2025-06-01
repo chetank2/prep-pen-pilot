@@ -4,12 +4,12 @@ import {
   ChatMessage, 
   ChatContext, 
   AIGenerationRequest,
-  SaveContentRequest
+  SaveContentRequest,
+  FileAttachment
 } from '../types/chat';
 
 export class ChatService {
   private static readonly BASE_URL = `${API_BASE_URL}/chat`;
-  private static readonly USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 
   // Session Management
   static async createSession(sessionData: {
@@ -47,8 +47,8 @@ export class ChatService {
   static async getSessions(folderId?: string): Promise<ChatSession[]> {
     try {
       const url = folderId 
-        ? `${this.BASE_URL}/sessions?userId=${this.USER_ID}&folderId=${folderId}`
-        : `${this.BASE_URL}/sessions?userId=${this.USER_ID}`;
+        ? `${this.BASE_URL}/sessions?folderId=${folderId}`
+        : `${this.BASE_URL}/sessions`;
 
       const response = await fetch(url);
       

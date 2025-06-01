@@ -9,7 +9,8 @@ import {
   ArrowRight,
   Calendar,
   CheckCircle,
-  Database
+  Database,
+  MessageCircle
 } from 'lucide-react';
 import { apiService } from '../services/api';
 
@@ -70,7 +71,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onModuleChange }) => {
         type: 'pdf' as const,
         title: pdf.filename.replace('.pdf', ''),
         date: formatRelativeTime(pdf.uploadedAt),
-        progress: Math.floor(Math.random() * 40) + 60 // Random progress for demo
+        progress: pdf.progress || 100 // Use real progress or mark as complete
       })) || [];
 
       setRecentItems([...recentPDFs, ...recentNotes]);
@@ -145,7 +146,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onModuleChange }) => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-4 gap-4 mb-8">
         <button
           onClick={() => onModuleChange('pdf-reader')}
           className="p-6 bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 group text-left"
@@ -175,17 +176,31 @@ const Dashboard: React.FC<DashboardProps> = ({ onModuleChange }) => {
         </button>
 
         <button
-          onClick={() => onModuleChange('mindmap')}
+          onClick={() => onModuleChange('chat')}
           className="p-6 bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 group text-left"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-              <GitBranch className="w-6 h-6 text-purple-600" />
+              <MessageCircle className="w-6 h-6 text-purple-600" />
             </div>
             <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
           </div>
-          <h3 className="font-semibold text-slate-900 mb-1">Mind Map</h3>
-          <p className="text-sm text-slate-600">Visualize concepts</p>
+          <h3 className="font-semibold text-slate-900 mb-1">AI Chat</h3>
+          <p className="text-sm text-slate-600">Chat with AI about your studies</p>
+        </button>
+
+        <button
+          onClick={() => onModuleChange('knowledge-base')}
+          className="p-6 bg-white rounded-2xl shadow-sm border border-slate-200 hover:shadow-md transition-all duration-200 group text-left"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+              <Database className="w-6 h-6 text-orange-600" />
+            </div>
+            <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+          </div>
+          <h3 className="font-semibold text-slate-900 mb-1">Knowledge Base</h3>
+          <p className="text-sm text-slate-600">AI-powered content organization</p>
         </button>
       </div>
 

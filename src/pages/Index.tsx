@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from '../components/Dashboard';
 import PDFReader from '../components/PDFReader';
 import CanvasNotes from '../components/CanvasNotes';
@@ -9,6 +8,7 @@ import Settings from '../components/Settings';
 import Navigation from '../components/Navigation';
 import AISummaryPanel from '../components/AISummaryPanel';
 import { KnowledgeBase } from './KnowledgeBase';
+import ChatInterface from './ChatInterface';
 
 const Index = () => {
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -19,6 +19,8 @@ const Index = () => {
     switch (activeModule) {
       case 'dashboard':
         return <Dashboard onModuleChange={setActiveModule} />;
+      case 'chat':
+        return <ChatInterface />;
       case 'pdf-reader':
         return <PDFReader onTextSelect={setSelectedText} onShowAI={() => setShowAIPanel(true)} />;
       case 'canvas':

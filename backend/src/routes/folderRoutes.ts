@@ -4,31 +4,45 @@ import { logger } from '../utils/logger';
 
 const router = express.Router();
 
-// Get user's folders
+// Get all folders for a user
 router.get('/', async (req, res) => {
   try {
-    const userId = req.query.userId as string || '550e8400-e29b-41d4-a716-446655440000';
+    const userId = req.query.userId as string;
     
-    const folders = await SupabaseService.getFolders(userId);
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
 
-    res.json({
-      success: true,
-      data: folders,
+    const folders = await SupabaseService.getFolders(userId);
+    res.json({ 
+      success: true, 
+      data: folders 
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Failed to fetch folders:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch folders',
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch folders' 
     });
   }
 });
 
-// Create new folder
+// Create a new folder
 router.post('/', async (req, res) => {
   try {
+    const userId = req.query.userId as string;
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
+
     const { name, description, color, icon, position } = req.body;
-    const userId = req.query.userId as string || '550e8400-e29b-41d4-a716-446655440000';
 
     if (!name) {
       return res.status(400).json({

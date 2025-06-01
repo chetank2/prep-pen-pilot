@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   BookOpen, 
@@ -8,7 +7,8 @@ import {
   FolderOpen, 
   Settings,
   BookMarked,
-  Database
+  Database,
+  MessageCircle
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -17,10 +17,9 @@ interface NavigationProps {
 }
 
 const Navigation: React.FC<NavigationProps> = ({ activeModule, onModuleChange }) => {
-  const location = useLocation();
-  
   const navigationItems = [
     { id: 'dashboard', icon: Home, label: 'Dashboard' },
+    { id: 'chat', icon: MessageCircle, label: 'AI Chat' },
     { id: 'pdf-reader', icon: BookOpen, label: 'PDF Reader' },
     { id: 'canvas', icon: PenTool, label: 'Canvas' },
     { id: 'mindmap', icon: GitBranch, label: 'Mind Maps' },

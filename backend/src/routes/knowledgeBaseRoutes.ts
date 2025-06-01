@@ -46,7 +46,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const result = await EnhancedFileUploadService.processFileUpload(
       req.file,
       uploadData,
-      'user-123' // Mock user ID for now
+      req.body.userId || req.query.userId as string
     );
 
     res.json({
@@ -66,8 +66,17 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // Get knowledge items with filters
 router.get('/items', async (req, res) => {
   try {
+    const userId = req.query.userId as string;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required',
+      });
+    }
+
     const filters = {
-      userId: req.query.userId as string || '550e8400-e29b-41d4-a716-446655440000', // Use userId from query or default UUID
+      userId,
       categoryId: req.query.categoryId as string,
       contentType: req.query.contentType as string,
       subject: req.query.subject as string,
@@ -138,19 +147,28 @@ router.put('/items/:id', async (req, res) => {
 router.get('/search', async (req, res) => {
   try {
     const query = req.query.q as string;
-    const filters = {
-      categoryId: req.query.categoryId as string,
-      contentType: req.query.contentType as string,
-    };
-
+    const userId = req.query.userId as string;
+    
     if (!query) {
       return res.status(400).json({
         success: false,
         message: 'Search query is required',
       });
     }
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required',
+      });
+    }
 
-    const items = await SupabaseService.searchKnowledgeItems('550e8400-e29b-41d4-a716-446655440000', query, filters);
+    const filters = {
+      categoryId: req.query.categoryId as string,
+      contentType: req.query.contentType as string,
+    };
+
+    const items = await SupabaseService.searchKnowledgeItems(userId, query, filters);
 
     res.json({
       success: true,
@@ -193,7 +211,16 @@ router.get('/download/:id', async (req, res) => {
 // Get compression statistics
 router.get('/compression-stats', async (req, res) => {
   try {
-    const stats = await EnhancedFileUploadService.getCompressionStats('550e8400-e29b-41d4-a716-446655440000');
+    const userId = req.query.userId as string;
+    
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required',
+      });
+    }
+
+    const stats = await EnhancedFileUploadService.getCompressionStats(userId);
 
     res.json({
       success: true,

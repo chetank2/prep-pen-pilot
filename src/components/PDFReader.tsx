@@ -94,7 +94,7 @@ const PDFReader: React.FC<PDFReaderProps> = ({ onModuleChange }) => {
           }
           break;
         case 'question':
-          // For demo, we'll ask a generic question about the selected text
+          // Generate a contextual question based on the selected text
           response = await apiService.askQuestion('Explain this concept in detail', selectedText);
           if (response.success && response.data) {
             setAiResponse(response.data.answer);

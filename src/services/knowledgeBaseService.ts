@@ -11,30 +11,20 @@ import {
   GeneratedContent
 } from '../types/knowledgeBase';
 
-// Use relative paths for Netlify Functions
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
-// Helper function to check if backend is available
+// Check if backend is available
 async function isBackendAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/knowledge-base/categories`, { 
+    const response = await fetch(`${API_BASE_URL}/folders`, {
       method: 'GET',
-      signal: AbortSignal.timeout(3000) // 3 second timeout
+      signal: AbortSignal.timeout(5000)
     });
     return response.ok;
   } catch {
     return false;
   }
 }
-
-// Mock data for when backend is not available
-const mockCategories: KnowledgeCategory[] = [
-  { id: '1', name: 'Books', description: 'Academic and reference books', icon: 'book', color: '#3B82F6', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: '2', name: 'Articles', description: 'Research papers and articles', icon: 'file-text', color: '#F59E0B', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: '3', name: 'Notes', description: 'Personal and study notes', icon: 'edit', color: '#06B6D4', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: '4', name: 'Videos', description: 'Educational videos and lectures', icon: 'video', color: '#EC4899', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: '5', name: 'Images', description: 'Diagrams, charts, and images', icon: 'image', color: '#84CC16', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-];
 
 export class KnowledgeBaseService {
   
@@ -44,9 +34,8 @@ export class KnowledgeBaseService {
       // Try Supabase first
       return await dbHelpers.getCategories();
     } catch (error) {
-      console.warn('Supabase not available, using mock categories:', error);
-      // Fallback to mock data
-      return mockCategories;
+      console.error('Failed to fetch categories:', error);
+      throw new Error('Unable to fetch categories. Please check your connection.');
     }
   }
 
@@ -72,43 +61,7 @@ export class KnowledgeBaseService {
     const backendAvailable = await isBackendAvailable();
     
     if (!backendAvailable) {
-      // Mock upload for demo purposes
-      console.warn('Backend not available, simulating upload...');
-      
-      // Simulate upload progress
-      if (onProgress) {
-        for (let i = 0; i <= 100; i += 10) {
-          setTimeout(() => onProgress(i), i * 10);
-        }
-      }
-      
-      // Return mock uploaded item
-      const mockItem: KnowledgeItem = {
-        id: `mock-${Date.now()}`,
-        user_id: 'demo-user',
-        category_id: uploadData.categoryId,
-        title: uploadData.title,
-        description: uploadData.description,
-        file_type: file.type.includes('pdf') ? 'pdf' : 'image',
-        file_name: file.name,
-        file_size: file.size,
-        compressed_size: Math.floor(file.size * 0.7), // Mock 30% compression
-        mime_type: file.type,
-        metadata: uploadData.metadata,
-        custom_category_type: uploadData.customCategoryType,
-        compression_metadata: {
-          compressionType: 'zlib',
-          compressionRatio: 0.3,
-          originalSize: file.size,
-          compressedSize: Math.floor(file.size * 0.7),
-          preservedForAI: true
-        },
-        processing_status: 'completed',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      return mockItem;
+      throw new Error('Backend service is not available. Please try again later.');
     }
 
     try {
@@ -139,19 +92,18 @@ export class KnowledgeBaseService {
     const backendAvailable = await isBackendAvailable();
     
     if (!backendAvailable) {
-      // Fallback to direct Supabase or mock data
+      // Fallback to direct Supabase
       try {
         return await dbHelpers.getKnowledgeItems(filters);
       } catch (error) {
-        console.warn('Supabase not available, returning empty array:', error);
-        return [];
+        console.error('Failed to fetch knowledge items from Supabase:', error);
+        throw new Error('Unable to fetch knowledge items. Please check your connection.');
       }
     }
 
     try {
       // Build query parameters
       const params = new URLSearchParams();
-      params.append('userId', '550e8400-e29b-41d4-a716-446655440000'); // Valid UUID for demo
       
       if (filters?.categoryId) {
         params.append('categoryId', filters.categoryId);
@@ -179,7 +131,7 @@ export class KnowledgeBaseService {
         return await dbHelpers.getKnowledgeItems(filters);
       } catch (fallbackError) {
         console.error('Fallback also failed:', fallbackError);
-        return [];
+        throw new Error('Unable to fetch knowledge items from any source.');
       }
     }
   }
@@ -412,7 +364,6 @@ export class KnowledgeBaseService {
         .from('chat_conversations')
         .insert({
           title: title || 'New Conversation',
-          user_id: 'user-123', // Mock user ID
         })
         .select()
         .single();
@@ -441,6 +392,21 @@ export class KnowledgeBaseService {
     }
   }
 
+  static subscribeToChatMessages(conversationId: string, callback: (payload: any) => void) {
+    return supabase
+      .channel(`chat_messages_${conversationId}`)
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'chat_messages',
+          filter: `conversation_id=eq.${conversationId}`
+        }, 
+        callback
+      )
+      .subscribe();
+  }
+
   static async sendChatMessage(
     conversationId: string, 
     content: string
@@ -448,26 +414,7 @@ export class KnowledgeBaseService {
     const backendAvailable = await isBackendAvailable();
     
     if (!backendAvailable) {
-      // Mock chat response when backend is not available
-      console.warn('Backend not available, using mock chat response...');
-      
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        conversation_id: conversationId,
-        role: 'user',
-        content,
-        created_at: new Date().toISOString()
-      };
-      
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        conversation_id: conversationId,
-        role: 'assistant',
-        content: `I understand you're asking about "${content}". This is a demo response since the AI backend is not currently available. In the full version, I would analyze your knowledge base and provide detailed, contextual answers based on your uploaded content.`,
-        created_at: new Date().toISOString()
-      };
-      
-      return { userMessage, assistantMessage };
+      throw new Error('Chat service is not available. Please try again later.');
     }
 
     try {
@@ -552,19 +499,4 @@ export class KnowledgeBaseService {
       )
       .subscribe();
   }
-
-  static subscribeToChatMessages(conversationId: string, callback: (payload: any) => void) {
-    return supabase
-      .channel(`chat_messages_${conversationId}`)
-      .on('postgres_changes', 
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'chat_messages',
-          filter: `conversation_id=eq.${conversationId}`
-        }, 
-        callback
-      )
-      .subscribe();
-  }
-} 
+}

@@ -101,14 +101,7 @@ export const dbHelpers = {
   // Get categories
   getCategories: async () => {
     if (!isSupabaseConfigured) {
-      // Return mock categories when Supabase is not configured
-      return [
-        { id: '1', name: 'Books', description: 'Academic and reference books', icon: 'book', color: '#3B82F6', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '2', name: 'Articles', description: 'Research papers and articles', icon: 'file-text', color: '#F59E0B', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '3', name: 'Notes', description: 'Personal and study notes', icon: 'edit', color: '#06B6D4', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '4', name: 'Videos', description: 'Educational videos and lectures', icon: 'video', color: '#EC4899', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-        { id: '5', name: 'Images', description: 'Diagrams, charts, and images', icon: 'image', color: '#84CC16', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-      ];
+      throw new Error('Database connection not configured. Please check your environment variables.');
     }
 
     const { data, error } = await supabase
@@ -124,13 +117,7 @@ export const dbHelpers = {
   // Create category
   createCategory: async (category: Omit<any, 'id' | 'created_at' | 'updated_at'>) => {
     if (!isSupabaseConfigured) {
-      // Return mock category when Supabase is not configured
-      return {
-        id: `mock-${Date.now()}`,
-        ...category,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+      throw new Error('Database connection not configured. Please check your environment variables.');
     }
 
     const { data, error } = await supabase
@@ -146,9 +133,7 @@ export const dbHelpers = {
   // Get knowledge items
   getKnowledgeItems: async (filters?: any) => {
     if (!isSupabaseConfigured) {
-      // Return empty array when Supabase is not configured
-      console.warn('Supabase not configured, returning empty knowledge items array');
-      return [];
+      throw new Error('Database connection not configured. Please check your environment variables.');
     }
 
     let query = supabase
@@ -179,14 +164,7 @@ export const dbHelpers = {
   // Create knowledge item
   createKnowledgeItem: async (item: any) => {
     if (!isSupabaseConfigured) {
-      // Return mock item when Supabase is not configured
-      return {
-        id: `mock-${Date.now()}`,
-        ...item,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        processing_status: 'completed',
-      };
+      throw new Error('Database connection not configured. Please check your environment variables.');
     }
 
     const { data, error } = await supabase
@@ -202,17 +180,12 @@ export const dbHelpers = {
   // Update knowledge item
   updateKnowledgeItem: async (id: string, updates: any) => {
     if (!isSupabaseConfigured) {
-      // Return mock updated item when Supabase is not configured
-      return {
-        id,
-        ...updates,
-        updated_at: new Date().toISOString(),
-      };
+      throw new Error('Database connection not configured. Please check your environment variables.');
     }
 
     const { data, error } = await supabase
       .from('knowledge_items')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', id)
       .select()
       .single();

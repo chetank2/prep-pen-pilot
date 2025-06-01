@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { X, Send, Lightbulb, MessageSquare, Copy, Bookmark } from 'lucide-react';
 
@@ -32,16 +31,28 @@ const AISummaryPanel: React.FC<AISummaryPanelProps> = ({ isOpen, onClose, select
     setInputMessage('');
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = {
+    try {
+      // TODO: Replace with actual AI service call
+      // For now, provide a generic response based on the selected text
+      setTimeout(() => {
+        const aiResponse = {
+          type: 'ai',
+          content: `I'll help you with the selected text "${selectedText.substring(0, 50)}...". Please note that AI features require backend integration. Your question: "${inputMessage}"`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, aiResponse]);
+        setIsLoading(false);
+      }, 1500);
+    } catch (error) {
+      console.error('Failed to get AI response:', error);
+      const errorResponse = {
         type: 'ai',
-        content: `Based on the selected text about "${selectedText.substring(0, 50)}...", here's a comprehensive summary:\n\nThis section discusses the federal structure of India's Constitution, emphasizing the balance between central and state powers. Key points include:\n\n• Dual polity system with Union and States\n• Distribution of sovereign powers\n• Constitutional framework ensuring unity\n\nWould you like me to elaborate on any specific aspect?`,
+        content: 'Sorry, I encountered an error processing your request. Please try again later.',
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, aiResponse]);
+      setMessages(prev => [...prev, errorResponse]);
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleQuickAction = (action: string) => {

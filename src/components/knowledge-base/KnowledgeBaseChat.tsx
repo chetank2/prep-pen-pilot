@@ -48,57 +48,47 @@ export function KnowledgeBaseChat({ selectedItems = [], className }: KnowledgeBa
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim()) return;
+    
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: inputMessage,
+      timestamp: new Date()
+    };
 
-    const messageText = inputMessage.trim();
+    setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setIsLoading(true);
 
-    // Add user message immediately
-    const userMessage: ChatMessage = {
-      id: 'user-' + Date.now(),
-      role: 'user',
-      content: messageText,
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, userMessage]);
-
     try {
-      // Simulate AI response for now (replace with actual API call)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const assistantMessage: ChatMessage = {
-        id: 'assistant-' + Date.now(),
-        role: 'assistant',
-        content: generateMockResponse(messageText, selectedItems),
-        timestamp: new Date(),
-        referencedItems: selectedItems.slice(0, 2),
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
-      inputRef.current?.focus();
+      const response = await KnowledgeBaseService.sendChatMessage(
+        'temp',
+        inputMessage
+      );
+
+      setMessages(prev => [...prev, response.assistantMessage]);
     } catch (error) {
       console.error('Failed to send message:', error);
-      toast.error('Failed to send message');
+      
+      const errorMessage: ChatMessage = {
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: 'Sorry, I encountered an error while processing your message. Please try again later.',
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const generateMockResponse = (userMessage: string, contextItems: string[]): string => {
-    const responses = [
-      `I understand you're asking about "${userMessage}". Based on your uploaded content${contextItems.length > 0 ? ` and the ${contextItems.length} selected files` : ''}, I can help you with that.`,
-      `That's an interesting question about "${userMessage}". Let me analyze your knowledge base to provide you with relevant insights.`,
-      `I can help you with that! From your uploaded materials${contextItems.length > 0 ? ` and selected items` : ''}, here's what I found relevant to your question.`,
-    ];
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
-
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      handleSendMessage();
     }
   };
 
@@ -239,7 +229,7 @@ export function KnowledgeBaseChat({ selectedItems = [], className }: KnowledgeBa
                 className="flex-1"
               />
               <Button
-                onClick={sendMessage}
+                onClick={handleSendMessage}
                 disabled={!inputMessage.trim() || isLoading}
                 size="icon"
               >

@@ -8,7 +8,9 @@ import {
   Headphones, 
   Image, 
   Edit,
-  FolderOpen
+  FolderOpen,
+  BookOpen,
+  HelpCircle
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -23,13 +25,15 @@ interface CategorySidebarProps {
 
 const iconMap = {
   book: Book,
+  'book-open': BookOpen,
   'file-text': FileText,
   list: List,
-  newspaper: Newspaper,
-  video: Video,
-  headphones: Headphones,
-  image: Image,
+  'help-circle': HelpCircle,
   edit: Edit,
+  video: Video,
+  image: Image,
+  newspaper: Newspaper,
+  headphones: Headphones,
 };
 
 export const CategorySidebar: React.FC<CategorySidebarProps> = ({

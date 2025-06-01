@@ -9,18 +9,31 @@ import { FileUploadDialog } from '../components/knowledge-base/FileUploadDialog'
 import { KnowledgeCategory, KnowledgeItem, UploadData } from '../types/knowledgeBase';
 import { KnowledgeBaseService } from '../services/knowledgeBaseService';
 import { useToast } from '../hooks/use-toast';
+import { KnowledgeBaseChat } from '../components/knowledge-base/KnowledgeBaseChat';
+import { KnowledgeBaseItem } from '../components/knowledge-base/KnowledgeBaseItem';
+import { CategoryManagement } from '../components/knowledge-base/CategoryManagement';
+import { SearchFilters } from '../types/knowledgeBase';
+import { 
+  Upload, 
+  MessageCircle,
+  FolderOpen,
+  Settings
+} from 'lucide-react';
 
 export const KnowledgeBase: React.FC = () => {
-  const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  // TODO: Replace with actual user authentication
+  const userId = 'current-user'; // This should come from auth context
 
-  // Mock user ID - in real app, get from auth context
-  const userId = '550e8400-e29b-41d4-a716-446655440000';
+  const [activeTab, setActiveTab] = useState<'browse' | 'chat' | 'categories'>('browse');
+  const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
+  const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadCategories();
@@ -78,7 +91,7 @@ export const KnowledgeBase: React.FC = () => {
       const newItem = await KnowledgeBaseService.uploadFile(file, uploadData);
 
       setKnowledgeItems(prev => [newItem, ...prev]);
-      setIsUploadDialogOpen(false);
+      setShowUploadDialog(false);
       
       toast({
         title: 'Success',
@@ -152,7 +165,7 @@ export const KnowledgeBase: React.FC = () => {
             <p className="text-slate-600">AI-powered study materials and content organization</p>
           </div>
           <Button 
-            onClick={() => setIsUploadDialogOpen(true)}
+            onClick={() => setShowUploadDialog(true)}
             className="bg-blue-600 hover:bg-blue-700"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -226,8 +239,8 @@ export const KnowledgeBase: React.FC = () => {
       </div>
 
       <FileUploadDialog
-        open={isUploadDialogOpen}
-        onOpenChange={setIsUploadDialogOpen}
+        open={showUploadDialog}
+        onOpenChange={setShowUploadDialog}
         categories={categories}
         onUpload={handleFileUpload}
       />

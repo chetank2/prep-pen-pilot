@@ -25,10 +25,13 @@ export interface UploadData {
 export class EnhancedFileUploadService {
   private static openaiService = new OpenAIService();
   
+  /**
+   * Process uploaded file with compression and AI analysis
+   */
   static async processFileUpload(
     file: Express.Multer.File,
     uploadData: UploadData,
-    userId: string = 'user-123' // Mock user ID for now
+    userId: string
   ) {
     const fileId = uuidv4();
     const fileExtension = path.extname(file.originalname);
