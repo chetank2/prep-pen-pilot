@@ -67,7 +67,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 router.get('/items', async (req, res) => {
   try {
     const filters = {
-      userId: 'user-123', // Mock user ID
+      userId: req.query.userId as string || '550e8400-e29b-41d4-a716-446655440000', // Use userId from query or default UUID
       categoryId: req.query.categoryId as string,
       contentType: req.query.contentType as string,
       subject: req.query.subject as string,
@@ -150,7 +150,7 @@ router.get('/search', async (req, res) => {
       });
     }
 
-    const items = await SupabaseService.searchKnowledgeItems('user-123', query, filters);
+    const items = await SupabaseService.searchKnowledgeItems('550e8400-e29b-41d4-a716-446655440000', query, filters);
 
     res.json({
       success: true,
@@ -193,7 +193,7 @@ router.get('/download/:id', async (req, res) => {
 // Get compression statistics
 router.get('/compression-stats', async (req, res) => {
   try {
-    const stats = await EnhancedFileUploadService.getCompressionStats('user-123');
+    const stats = await EnhancedFileUploadService.getCompressionStats('550e8400-e29b-41d4-a716-446655440000');
 
     res.json({
       success: true,

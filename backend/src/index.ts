@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
 // Load environment variables FIRST before any other imports
 // Try multiple possible paths for the .env file
@@ -15,7 +16,6 @@ envPaths.forEach(envPath => {
 });
 
 // Try loading from the first path that exists
-const fs = require('fs');
 let envLoaded = false;
 for (const envPath of envPaths) {
   if (fs.existsSync(envPath)) {
@@ -39,6 +39,7 @@ import { logger } from './utils/logger';
 import { testConnection } from './config/supabase';
 import knowledgeBaseRoutes from './routes/knowledgeBaseRoutes';
 import chatRoutes from './routes/chatRoutes';
+import folderRoutes from './routes/folderRoutes';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -51,8 +52,9 @@ app.use(helmet({
 // CORS configuration
 app.use(cors({
   origin: [
+    'http://localhost:3000',
     'http://localhost:5173',
-    'http://localhost:3000', 
+    'http://localhost:8087',
     'https://preperation.netlify.app'
   ],
   credentials: true,
@@ -61,23 +63,52 @@ app.use(cors({
 // Compression middleware
 app.use(compression());
 
-// Rate limiting
-const limiter = rateLimit({
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Create logs directory if it doesn't exist
+const logsDir = path.join(__dirname, '../logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
+
+// Middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Enhanced rate limiting for different endpoints
+const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 100, // limit each IP to 100 requests per windowMs
   message: 'Too many requests from this IP, please try again later.',
 });
-app.use(limiter);
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50, // limit file uploads
+  message: 'Too many uploads from this IP, please try again later.',
+});
+
+const chatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // Allow more chat requests
+  message: 'Too many chat messages, please slow down.',
+});
+
+// Apply rate limiting
+app.use('/api', generalLimiter);
+app.use('/api/knowledge-base/upload', uploadLimiter);
+app.use('/api/chat', chatLimiter);
 
 // Request logging middleware
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`, {
     ip: req.ip,
     userAgent: req.get('User-Agent'),
+    timestamp: new Date().toISOString(),
   });
   next();
 });
@@ -88,29 +119,35 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '2.0.0',
   });
 });
 
 // API routes
 app.use('/api/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/folders', folderRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found',
+    message: `Route ${req.originalUrl} not found`,
   });
 });
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error('Unhandled error:', err);
+app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  logger.error('Unhandled error:', error);
   
-  res.status(err.status || 500).json({
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  res.status(error.status || 500).json({
     success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+    message: error.message || 'Internal server error',
+    ...(isDevelopment && { stack: error.stack }),
   });
 });
 
@@ -136,12 +173,11 @@ async function startServer() {
     }
 
     app.listen(PORT, () => {
-      logger.info(`🚀 Server running on port ${PORT}`);
-      logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`🔗 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
-      logger.info(`📁 Upload limit: 100MB`);
-      logger.info(`🗄️  Database: Connected`);
-      logger.info(`🤖 OpenAI: ${process.env.OPENAI_API_KEY ? 'Configured' : 'Not configured'}`);
+      logger.info(`🚀 Enhanced Knowledge Base API Server running on port ${PORT}`);
+      logger.info(`📊 Health check available at: http://localhost:${PORT}/health`);
+      logger.info(`🤖 Chat API available at: http://localhost:${PORT}/api/chat`);
+      logger.info(`📁 Folders API available at: http://localhost:${PORT}/api/folders`);
+      logger.info(`📚 Knowledge Base API available at: http://localhost:${PORT}/api/knowledge-base`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);

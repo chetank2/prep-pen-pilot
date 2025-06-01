@@ -4,20 +4,49 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 class KnowledgeBaseAPI {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}/knowledge-base${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-      ...options,
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/knowledge-base${endpoint}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+        ...options,
+      });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Network error' }));
-      throw new Error(error.error || 'Request failed');
+      if (!response.ok) {
+        let errorMessage = 'Request failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || `HTTP ${response.status}`;
+        } catch {
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      
+      // Handle different API response formats
+      if (result && typeof result === 'object') {
+        // If it has a success field and it's false, treat as error
+        if (result.success === false) {
+          throw new Error(result.message || 'API returned error');
+        }
+        
+        // If it has a data field, return that
+        if (result.data !== undefined) {
+          return result.data;
+        }
+        
+        // Otherwise return the whole result
+        return result;
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`API request failed for ${endpoint}:`, error);
+      throw error;
     }
-
-    return response.json();
   }
 
   async getCategories(): Promise<KnowledgeCategory[]> {

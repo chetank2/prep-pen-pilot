@@ -188,4 +188,27 @@ export class OpenAIService {
       };
     }
   }
+
+  async generateResponse(userMessage: string, systemPrompt: string): Promise<string> {
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7,
+      });
+
+      if (!response.choices || !response.choices[0] || !response.choices[0].message) {
+        throw new Error('Invalid response from OpenAI');
+      }
+
+      return response.choices[0].message.content || 'I apologize, but I was unable to generate a response.';
+    } catch (error) {
+      logger.error('Error generating response:', error);
+      throw new Error('Failed to generate AI response');
+    }
+  }
 } 

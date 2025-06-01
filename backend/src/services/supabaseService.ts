@@ -202,10 +202,7 @@ export class SupabaseService {
       const { data, error } = await supabase
         .from('knowledge_items')
         .insert(knowledgeItem)
-        .select(`
-          *,
-          knowledge_categories(name, color, icon)
-        `)
+        .select()
         .single();
 
       if (error) {
@@ -227,10 +224,7 @@ export class SupabaseService {
         .from('knowledge_items')
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq('id', id)
-        .select(`
-          *,
-          knowledge_categories(name, color, icon)
-        `)
+        .select()
         .single();
 
       if (error) {
@@ -256,7 +250,6 @@ export class SupabaseService {
         `)
         .order('created_at', { ascending: false });
 
-      // Apply filters
       if (filters.userId) {
         query = query.eq('user_id', filters.userId);
       }
@@ -265,24 +258,11 @@ export class SupabaseService {
         query = query.eq('category_id', filters.categoryId);
       }
 
-      if (filters.contentType) {
-        query = query.eq('custom_category_type', filters.contentType);
-      }
-
-      if (filters.subject) {
-        query = query.ilike('metadata->subject', `%${filters.subject}%`);
-      }
-
-      if (filters.difficultyLevel) {
-        query = query.eq('metadata->difficulty_level', filters.difficultyLevel);
-      }
-
-      if (filters.tags && filters.tags.length > 0) {
-        query = query.overlaps('metadata->tags', filters.tags);
+      if (filters.folderId) {
+        query = query.eq('folder_id', filters.folderId);
       }
 
       const { data, error } = await query;
-
       if (error) {
         logger.error('Failed to fetch knowledge items:', error);
         throw error;
@@ -330,17 +310,15 @@ export class SupabaseService {
         .or(`title.ilike.%${query}%,description.ilike.%${query}%,extracted_text.ilike.%${query}%`)
         .order('created_at', { ascending: false });
 
-      // Apply additional filters
       if (filters.categoryId) {
         dbQuery = dbQuery.eq('category_id', filters.categoryId);
       }
 
-      if (filters.contentType) {
-        dbQuery = dbQuery.eq('custom_category_type', filters.contentType);
+      if (filters.folderId) {
+        dbQuery = dbQuery.eq('folder_id', filters.folderId);
       }
 
       const { data, error } = await dbQuery;
-
       if (error) {
         logger.error('Failed to search knowledge items:', error);
         throw error;
@@ -353,7 +331,7 @@ export class SupabaseService {
     }
   }
 
-  // User Content Operations (for generated content and annotations)
+  // User Generated Content Operations
   static async createUserContent(content: any): Promise<any> {
     try {
       const userContent = {
@@ -364,7 +342,7 @@ export class SupabaseService {
       };
 
       const { data, error } = await supabase
-        .from('user_content')
+        .from('generated_content')
         .insert(userContent)
         .select()
         .single();
@@ -385,7 +363,7 @@ export class SupabaseService {
   static async getUserContent(knowledgeItemId: string, contentType?: string): Promise<any[]> {
     try {
       let query = supabase
-        .from('user_content')
+        .from('generated_content')
         .select('*')
         .eq('knowledge_item_id', knowledgeItemId)
         .order('created_at', { ascending: false });
@@ -395,7 +373,6 @@ export class SupabaseService {
       }
 
       const { data, error } = await query;
-
       if (error) {
         logger.error('Failed to fetch user content:', error);
         throw error;
@@ -437,83 +414,332 @@ export class SupabaseService {
     }
   }
 
-  static async createChatMessage(message: any): Promise<any> {
-    try {
-      const chatMessage = {
-        id: uuidv4(),
-        ...message,
-        created_at: new Date().toISOString(),
-      };
-
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .insert(chatMessage)
-        .select()
-        .single();
-
-      if (error) {
-        logger.error('Failed to create chat message:', error);
-        throw error;
-      }
-
-      return data;
-    } catch (error) {
-      logger.error('Create chat message error:', error);
-      throw error;
-    }
-  }
-
-  static async getChatMessages(conversationId: string): Promise<any[]> {
-    try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        logger.error('Failed to fetch chat messages:', error);
-        throw error;
-      }
-
-      return data || [];
-    } catch (error) {
-      logger.error('Get chat messages error:', error);
-      throw error;
-    }
-  }
-
-  // Utility Methods
+  // Storage & Analytics
   static async getStorageStats(): Promise<any> {
     try {
-      const { data, error } = await supabase.rpc('calculate_storage_savings');
-
+      const { data, error } = await supabase.rpc('get_storage_stats');
+      
       if (error) {
         logger.error('Failed to get storage stats:', error);
         throw error;
       }
 
-      return data?.[0] || {
-        total_original_size: 0,
-        total_compressed_size: 0,
-        total_savings: 0,
-        average_compression_ratio: 0,
-      };
+      return data;
     } catch (error) {
       logger.error('Get storage stats error:', error);
+      return { total_size: 0, file_count: 0 };
+    }
+  }
+
+  // Vector Search (placeholder for future implementation)
+  static async searchSimilarContent(embedding: number[], limit = 5): Promise<any[]> {
+    try {
+      // Placeholder for vector similarity search
+      // This would use pgvector extension in production
+      return [];
+    } catch (error) {
+      logger.error('Vector search error:', error);
+      return [];
+    }
+  }
+
+  // Folder Operations
+  static async getFolders(userId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('folders')
+        .select('*')
+        .eq('user_id', userId)
+        .order('position', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      logger.error('Failed to fetch folders:', error);
       throw error;
     }
   }
 
-  // Vector search for semantic similarity (placeholder)
-  static async searchSimilarContent(embedding: number[], limit = 5): Promise<any[]> {
+  static async createFolder(folderData: any): Promise<any> {
     try {
-      // This would use pgvector extension in production
-      // For now, return empty array
-      return [];
+      const { data, error } = await supabase
+        .from('folders')
+        .insert(folderData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
     } catch (error) {
-      logger.error('Vector search error:', error);
+      logger.error('Failed to create folder:', error);
       throw error;
     }
+  }
+
+  static async updateFolder(folderId: string, updates: any): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('folders')
+        .update(updates)
+        .eq('id', folderId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error('Failed to update folder:', error);
+      throw error;
+    }
+  }
+
+  static async deleteFolder(folderId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('folders')
+        .delete()
+        .eq('id', folderId);
+
+      if (error) throw error;
+    } catch (error) {
+      logger.error('Failed to delete folder:', error);
+      throw error;
+    }
+  }
+
+  static async getFolderContents(folderId: string): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('folder_contents')
+        .select(`
+          *,
+          knowledge_items(*),
+          generated_content(*),
+          chat_sessions(*)
+        `)
+        .eq('folder_id', folderId)
+        .order('position', { ascending: true });
+
+      if (error) throw error;
+      
+      // Flatten the results to include the actual content objects
+      return (data || []).map((item: any) => ({
+        ...item,
+        content: item.knowledge_items || item.generated_content || item.chat_sessions
+      }));
+    } catch (error) {
+      logger.error('Failed to fetch folder contents:', error);
+      throw error;
+    }
+  }
+
+  static async addToFolder(folderId: string, contentId: string, contentType: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('folder_contents')
+        .insert({
+          folder_id: folderId,
+          content_id: contentId,
+          content_type: contentType,
+          position: 0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error('Failed to add content to folder:', error);
+      throw error;
+    }
+  }
+
+  static async removeFromFolder(folderId: string, contentId: string, contentType: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('folder_contents')
+        .delete()
+        .eq('folder_id', folderId)
+        .eq('content_id', contentId)
+        .eq('content_type', contentType);
+
+      if (error) throw error;
+    } catch (error) {
+      logger.error('Failed to remove content from folder:', error);
+      throw error;
+    }
+  }
+
+  // Chat Session Operations
+  static async createChatSession(sessionData: any): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .insert(sessionData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error('Failed to create chat session:', error);
+      throw error;
+    }
+  }
+
+  static async getChatSessions(userId: string, folderId?: string): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false });
+
+      if (folderId) {
+        query = query.eq('folder_id', folderId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      logger.error('Failed to fetch chat sessions:', error);
+      throw error;
+    }
+  }
+
+  static async getChatSession(sessionId: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error('Failed to fetch chat session:', error);
+      throw error;
+    }
+  }
+
+  static async updateChatSession(sessionId: string, updates: any): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('chat_sessions')
+        .update(updates)
+        .eq('id', sessionId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error('Failed to update chat session:', error);
+      throw error;
+    }
+  }
+
+  static async deleteChatSession(sessionId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('chat_sessions')
+        .delete()
+        .eq('id', sessionId);
+
+      if (error) throw error;
+    } catch (error) {
+      logger.error('Failed to delete chat session:', error);
+      throw error;
+    }
+  }
+
+  // Chat Message Operations
+  static async createChatMessage(messageData: any): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .insert(messageData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error('Failed to create chat message:', error);
+      throw error;
+    }
+  }
+
+  static async getChatMessages(sessionId: string, limit?: number): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true });
+
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      logger.error('Failed to fetch chat messages:', error);
+      throw error;
+    }
+  }
+
+  // Enhanced Generated Content Operations
+  static async createGeneratedContent(contentData: any): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('generated_content')
+        .insert(contentData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      logger.error('Failed to create generated content:', error);
+      throw error;
+    }
+  }
+
+  static async getGeneratedContent(filters: any = {}): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('generated_content')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (filters.folderId) {
+        query = query.eq('folder_id', filters.folderId);
+      }
+
+      if (filters.contentType) {
+        query = query.eq('content_type', filters.contentType);
+      }
+
+      if (filters.knowledgeItemId) {
+        query = query.eq('knowledge_item_id', filters.knowledgeItemId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      logger.error('Failed to fetch generated content:', error);
+      throw error;
+    }
+  }
+
+  // Utility method for supabase access (keeping compatibility)
+  static get supabase() {
+    return supabase;
   }
 } 

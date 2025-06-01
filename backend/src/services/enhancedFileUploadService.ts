@@ -402,4 +402,34 @@ export class EnhancedFileUploadService {
       throw error;
     }
   }
+
+  // Extract text from uploaded file (for chat)
+  static async extractTextFromFile(file: Express.Multer.File): Promise<{ extractedText?: string; error?: string }> {
+    try {
+      logger.info(`Extracting text from ${file.originalname}`, {
+        mimeType: file.mimetype,
+        size: file.size
+      });
+
+      // Use compression service which already has text extraction
+      const compressionResult = await CompressionService.compressFile(
+        file.buffer,
+        file.mimetype,
+        file.originalname,
+        {
+          imageQuality: 85,
+          preserveOriginal: false
+        }
+      );
+
+      return {
+        extractedText: compressionResult.extractedText || ''
+      };
+    } catch (error) {
+      logger.error('Text extraction failed:', error);
+      return {
+        error: error instanceof Error ? error.message : 'Unknown error during text extraction'
+      };
+    }
+  }
 } 

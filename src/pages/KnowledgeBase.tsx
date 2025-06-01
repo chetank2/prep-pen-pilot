@@ -6,8 +6,8 @@ import { Input } from '../components/ui/input';
 import { CategorySidebar } from '../components/knowledge-base/CategorySidebar';
 import { KnowledgeItemsGrid } from '../components/knowledge-base/KnowledgeItemsGrid';
 import { FileUploadDialog } from '../components/knowledge-base/FileUploadDialog';
-import { KnowledgeCategory, KnowledgeItem } from '../types/knowledgeBase';
-import { knowledgeBaseAPI } from '../services/knowledgeBaseApi';
+import { KnowledgeCategory, KnowledgeItem, UploadData } from '../types/knowledgeBase';
+import { KnowledgeBaseService } from '../services/knowledgeBaseService';
 import { useToast } from '../hooks/use-toast';
 
 export const KnowledgeBase: React.FC = () => {
@@ -20,7 +20,7 @@ export const KnowledgeBase: React.FC = () => {
   const { toast } = useToast();
 
   // Mock user ID - in real app, get from auth context
-  const userId = 'user-123';
+  const userId = '550e8400-e29b-41d4-a716-446655440000';
 
   useEffect(() => {
     loadCategories();
@@ -32,7 +32,7 @@ export const KnowledgeBase: React.FC = () => {
 
   const loadCategories = async () => {
     try {
-      const categoriesData = await knowledgeBaseAPI.getCategories();
+      const categoriesData = await KnowledgeBaseService.getCategories();
       setCategories(categoriesData);
     } catch (error) {
       toast({
@@ -46,7 +46,9 @@ export const KnowledgeBase: React.FC = () => {
   const loadKnowledgeItems = async () => {
     try {
       setLoading(true);
-      const items = await knowledgeBaseAPI.getKnowledgeItems(userId, selectedCategory || undefined);
+      const items = await KnowledgeBaseService.getKnowledgeItems({
+        categoryId: selectedCategory || undefined
+      });
       setKnowledgeItems(items);
     } catch (error) {
       toast({
@@ -66,13 +68,14 @@ export const KnowledgeBase: React.FC = () => {
     description?: string
   ) => {
     try {
-      const newItem = await knowledgeBaseAPI.uploadFile(
-        file,
-        userId,
+      const uploadData: UploadData = {
         categoryId,
         title,
-        description
-      );
+        description,
+        metadata: {},
+      };
+
+      const newItem = await KnowledgeBaseService.uploadFile(file, uploadData);
 
       setKnowledgeItems(prev => [newItem, ...prev]);
       setIsUploadDialogOpen(false);

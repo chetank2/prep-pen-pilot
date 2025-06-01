@@ -3,22 +3,42 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+// Check if Supabase is configured
+const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+
+// Only log warning instead of throwing error
+if (!isSupabaseConfigured) {
+  console.warn('Supabase environment variables not set. Database features will be disabled.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-});
+// Create supabase client with fallback values to prevent errors
+export const supabase = isSupabaseConfigured 
+  ? createClient(supabaseUrl!, supabaseAnonKey!, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    })
+  : createClient('https://placeholder.supabase.co', 'placeholder-key', {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+
+// Export configuration status
+export const supabaseConfig = {
+  isConfigured: isSupabaseConfigured,
+  hasUrl: !!supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+};
 
 // Storage bucket names
 export const STORAGE_BUCKETS = {
@@ -80,6 +100,17 @@ export const deleteFile = async (bucket: string, path: string): Promise<void> =>
 export const dbHelpers = {
   // Get categories
   getCategories: async () => {
+    if (!isSupabaseConfigured) {
+      // Return mock categories when Supabase is not configured
+      return [
+        { id: '1', name: 'Books', description: 'Academic and reference books', icon: 'book', color: '#3B82F6', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: '2', name: 'Articles', description: 'Research papers and articles', icon: 'file-text', color: '#F59E0B', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: '3', name: 'Notes', description: 'Personal and study notes', icon: 'edit', color: '#06B6D4', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: '4', name: 'Videos', description: 'Educational videos and lectures', icon: 'video', color: '#EC4899', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+        { id: '5', name: 'Images', description: 'Diagrams, charts, and images', icon: 'image', color: '#84CC16', is_default: true, is_custom: false, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+      ];
+    }
+
     const { data, error } = await supabase
       .from('knowledge_categories')
       .select('*')
@@ -92,6 +123,16 @@ export const dbHelpers = {
 
   // Create category
   createCategory: async (category: Omit<any, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!isSupabaseConfigured) {
+      // Return mock category when Supabase is not configured
+      return {
+        id: `mock-${Date.now()}`,
+        ...category,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
+
     const { data, error } = await supabase
       .from('knowledge_categories')
       .insert(category)
@@ -104,6 +145,12 @@ export const dbHelpers = {
 
   // Get knowledge items
   getKnowledgeItems: async (filters?: any) => {
+    if (!isSupabaseConfigured) {
+      // Return empty array when Supabase is not configured
+      console.warn('Supabase not configured, returning empty knowledge items array');
+      return [];
+    }
+
     let query = supabase
       .from('knowledge_items')
       .select(`
@@ -131,6 +178,17 @@ export const dbHelpers = {
 
   // Create knowledge item
   createKnowledgeItem: async (item: any) => {
+    if (!isSupabaseConfigured) {
+      // Return mock item when Supabase is not configured
+      return {
+        id: `mock-${Date.now()}`,
+        ...item,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        processing_status: 'completed',
+      };
+    }
+
     const { data, error } = await supabase
       .from('knowledge_items')
       .insert(item)
@@ -143,6 +201,15 @@ export const dbHelpers = {
 
   // Update knowledge item
   updateKnowledgeItem: async (id: string, updates: any) => {
+    if (!isSupabaseConfigured) {
+      // Return mock updated item when Supabase is not configured
+      return {
+        id,
+        ...updates,
+        updated_at: new Date().toISOString(),
+      };
+    }
+
     const { data, error } = await supabase
       .from('knowledge_items')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -156,6 +223,12 @@ export const dbHelpers = {
 
   // Search knowledge items
   searchKnowledgeItems: async (query: string, filters?: any) => {
+    if (!isSupabaseConfigured) {
+      // Return empty array when Supabase is not configured
+      console.warn('Supabase not configured, returning empty search results');
+      return [];
+    }
+
     let dbQuery = supabase
       .from('knowledge_items')
       .select(`

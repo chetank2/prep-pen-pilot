@@ -1,174 +1,238 @@
 import express from 'express';
+import multer from 'multer';
 import { SupabaseService } from '../services/supabaseService';
 import { OpenAIService } from '../services/OpenAIService';
+import { EnhancedFileUploadService } from '../services/enhancedFileUploadService';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
 const openaiService = new OpenAIService();
 
-// Get chat conversations
-router.get('/conversations', async (req, res) => {
-  try {
-    const { data, error } = await SupabaseService.supabase
-      .from('chat_conversations')
-      .select('*')
-      .eq('user_id', 'user-123') // Mock user ID
-      .order('updated_at', { ascending: false });
+// Configure multer for chat file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow images and documents in chat
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf', 'text/plain', 'text/markdown',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`File type ${file.mimetype} not supported in chat`));
+    }
+  }
+});
 
-    if (error) throw error;
+// Get or create chat session
+router.post('/sessions', async (req, res) => {
+  try {
+    const { title, folder_id, context_type = 'general', context_data = {} } = req.body;
+    const userId = req.query.userId as string || '550e8400-e29b-41d4-a716-446655440000';
+
+    const session = await SupabaseService.createChatSession({
+      user_id: userId,
+      title: title || 'New Chat',
+      folder_id,
+      context_type,
+      context_data,
+    });
 
     res.json({
       success: true,
-      data: data || [],
+      data: session,
     });
   } catch (error) {
-    logger.error('Failed to fetch conversations:', error);
+    logger.error('Failed to create chat session:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch conversations',
+      message: 'Failed to create chat session',
     });
   }
 });
 
-// Create new conversation
-router.post('/conversations', async (req, res) => {
+// Get chat sessions
+router.get('/sessions', async (req, res) => {
   try {
-    const { title } = req.body;
-    const conversation = await SupabaseService.createChatConversation('user-123', title);
+    const userId = req.query.userId as string || '550e8400-e29b-41d4-a716-446655440000';
+    const folderId = req.query.folderId as string;
+    
+    const sessions = await SupabaseService.getChatSessions(userId, folderId);
 
     res.json({
       success: true,
-      data: conversation,
+      data: sessions,
     });
   } catch (error) {
-    logger.error('Failed to create conversation:', error);
+    logger.error('Failed to fetch chat sessions:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create conversation',
+      message: 'Failed to fetch chat sessions',
     });
   }
 });
 
-// Get messages for a conversation
-router.get('/conversations/:id/messages', async (req, res) => {
+// Get chat messages
+router.get('/sessions/:sessionId/messages', async (req, res) => {
   try {
-    const messages = await SupabaseService.getChatMessages(req.params.id);
+    const { sessionId } = req.params;
+    const messages = await SupabaseService.getChatMessages(sessionId);
 
     res.json({
       success: true,
       data: messages,
     });
   } catch (error) {
-    logger.error('Failed to fetch messages:', error);
+    logger.error('Failed to fetch chat messages:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch messages',
+      message: 'Failed to fetch chat messages',
     });
   }
 });
 
-// Send message and get AI response
-router.post('/message', async (req, res) => {
+// Send message with optional file uploads
+router.post('/sessions/:sessionId/messages', upload.array('files', 5), async (req, res) => {
   try {
-    const { conversationId, content } = req.body;
+    const { sessionId } = req.params;
+    const { content } = req.body;
+    const files = req.files as Express.Multer.File[];
 
-    if (!conversationId || !content) {
+    if (!sessionId) {
       return res.status(400).json({
         success: false,
-        message: 'Conversation ID and content are required',
+        message: 'Session ID is required',
       });
     }
 
-    // Save user message
-    const userMessage = await SupabaseService.createChatMessage({
-      conversation_id: conversationId,
-      role: 'user',
-      content: content.trim(),
-    });
+    if (!content && (!files || files.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message content or files are required',
+      });
+    }
 
-    // Get conversation context (recent messages)
-    const recentMessages = await SupabaseService.getChatMessages(conversationId);
-    const contextMessages = recentMessages.slice(-10); // Last 10 messages for context
+    // Process uploaded files if any
+    let attachments: any[] = [];
+    let extractedTexts: string[] = [];
 
-    // Get relevant knowledge items (simple keyword search for now)
-    const keywords = extractKeywords(content);
-    let relevantItems: any[] = [];
-    let contextText = '';
+    if (files && files.length > 0) {
+      logger.info(`Processing ${files.length} files in chat message`);
+      
+      for (const file of files) {
+        try {
+          // For images, use OCR; for documents, extract text
+          let extractedText = '';
+          
+          if (file.mimetype.startsWith('image/')) {
+            // TODO: Implement OCR for images
+            extractedText = `[Image: ${file.originalname}]`;
+          } else if (file.mimetype === 'application/pdf') {
+            // Extract text from PDF
+            const result = await EnhancedFileUploadService.extractTextFromFile(file);
+            extractedText = result.extractedText || '';
+          } else if (file.mimetype.includes('text/')) {
+            extractedText = file.buffer.toString('utf-8');
+          }
 
-    if (keywords.length > 0) {
-      try {
-        relevantItems = await SupabaseService.searchKnowledgeItems(
-          'user-123',
-          keywords.join(' '),
-          {}
-        );
-        
-        // Use top 3 most relevant items for context
-        const topItems = relevantItems.slice(0, 3);
-        contextText = topItems
-          .map(item => `Title: ${item.title}\nContent: ${item.extracted_text?.substring(0, 500) || item.description || ''}`)
-          .join('\n\n');
-      } catch (error) {
-        logger.warn('Failed to search for relevant items:', error);
+          attachments.push({
+            id: `attach-${Date.now()}-${Math.random()}`,
+            name: file.originalname,
+            type: file.mimetype,
+            size: file.size,
+            processing_status: 'completed'
+          });
+
+          if (extractedText) {
+            extractedTexts.push(`File: ${file.originalname}\nContent: ${extractedText.substring(0, 2000)}`);
+          }
+        } catch (error) {
+          logger.warn(`Failed to process file ${file.originalname}:`, error);
+          attachments.push({
+            id: `attach-${Date.now()}-${Math.random()}`,
+            name: file.originalname,
+            type: file.mimetype,
+            size: file.size,
+            processing_status: 'failed'
+          });
+        }
       }
     }
 
-    // Generate AI response
-    const aiResponse = await generateAIResponse(content, contextText, contextMessages);
+    // Combine user message with extracted text from files
+    const fullContent = [content, ...extractedTexts].filter(Boolean).join('\n\n');
+
+    // Save user message
+    const userMessage = await SupabaseService.createChatMessage({
+      session_id: sessionId,
+      role: 'user',
+      content: fullContent,
+      attachments,
+    });
+
+    // Get session context
+    const session = await SupabaseService.getChatSession(sessionId);
+    const recentMessages = await SupabaseService.getChatMessages(sessionId, 10);
+
+    // Generate AI response with context
+    const aiResponse = await generateContextualAIResponse(
+      fullContent,
+      session,
+      recentMessages.slice(0, -1) // Exclude the message we just added
+    );
 
     // Save assistant message
     const assistantMessage = await SupabaseService.createChatMessage({
-      conversation_id: conversationId,
+      session_id: sessionId,
       role: 'assistant',
-      content: aiResponse,
-      referenced_items: relevantItems.slice(0, 3).map(item => item.id),
-      context_used: {
-        knowledge_items: relevantItems.length,
-        context_length: contextText.length,
-      },
+      content: aiResponse.content,
+      context_used: aiResponse.context_used,
     });
 
-    // Update conversation timestamp
-    await SupabaseService.supabase
-      .from('chat_conversations')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', conversationId);
+    // Update session title if it's the first exchange
+    if (recentMessages.length <= 1) {
+      const title = generateSessionTitle(fullContent);
+      await SupabaseService.updateChatSession(sessionId, { title });
+    }
 
     res.json({
       success: true,
       data: {
-        userMessage,
-        assistantMessage,
+        user_message: userMessage,
+        assistant_message: assistantMessage,
+        suggestions: aiResponse.suggestions,
       },
     });
   } catch (error) {
-    logger.error('Failed to process message:', error);
+    logger.error('Failed to send chat message:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to process message',
+      message: 'Failed to send message',
     });
   }
 });
 
-// Generate AI content (mindmap, notes, summary)
-router.post('/generate/:type', async (req, res) => {
+// Generate specific content (mindmap, notes, etc.)
+router.post('/generate', async (req, res) => {
   try {
-    const { type } = req.params;
-    const { knowledgeItemId, subject, customPrompt } = req.body;
+    const { 
+      type, 
+      content, 
+      context, 
+      user_query, 
+      options = {} 
+    } = req.body;
 
-    if (!knowledgeItemId) {
+    if (!type || !content || !user_query) {
       return res.status(400).json({
         success: false,
-        message: 'Knowledge item ID is required',
-      });
-    }
-
-    // Get knowledge item
-    const item = await SupabaseService.getKnowledgeItemById(knowledgeItemId);
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: 'Knowledge item not found',
+        message: 'Type, content, and user_query are required',
       });
     }
 
@@ -177,34 +241,47 @@ router.post('/generate/:type', async (req, res) => {
 
     switch (type) {
       case 'mindmap':
-        generatedContent = await openaiService.generateMindmap(
-          item.extracted_text || item.description || '',
-          subject || item.metadata?.subject
-        );
+        generatedContent = await openaiService.generateMindmap(content, options.subject || 'Topic');
         contentData = {
           type: 'mindmap',
-          data: generatedContent,
+          mermaidSyntax: generatedContent,
+          subject: options.subject,
         };
         break;
 
       case 'notes':
-        generatedContent = await openaiService.generateNotes(
-          item.extracted_text || item.description || '',
-          subject || item.metadata?.subject
-        );
+        generatedContent = await openaiService.generateNotes(content, options.subject || 'Topic');
         contentData = {
           type: 'notes',
-          data: generatedContent,
+          content: generatedContent,
+          format: options.format || 'outline',
         };
         break;
 
       case 'summary':
-        generatedContent = await openaiService.generateSummary(
-          item.extracted_text || item.description || ''
-        );
+        generatedContent = await openaiService.generateSummary(content);
         contentData = {
           type: 'summary',
-          data: generatedContent,
+          content: generatedContent,
+          depth: options.depth || 'brief',
+        };
+        break;
+
+      case 'chart':
+        generatedContent = await generateChart(content, user_query, options);
+        contentData = {
+          type: 'chart',
+          chartData: generatedContent,
+          chartType: options.chartType || 'flowchart',
+        };
+        break;
+
+      case 'analysis':
+        generatedContent = await openaiService.analyzeContent(content);
+        contentData = {
+          type: 'analysis',
+          analysis: generatedContent,
+          style: options.style || 'academic',
         };
         break;
 
@@ -215,82 +292,225 @@ router.post('/generate/:type', async (req, res) => {
         });
     }
 
-    // Save generated content
-    const savedContent = await SupabaseService.createUserContent({
-      knowledge_item_id: knowledgeItemId,
-      content_type: type as any,
-      title: `Generated ${type} for ${item.title}`,
-      content_data: contentData,
-      prompt_used: customPrompt || `Generate ${type} for educational content`,
+    res.json({
+      success: true,
+      data: {
+        content_type: type,
+        content_data: contentData,
+        generated_at: new Date().toISOString(),
+      },
     });
+  } catch (error) {
+    logger.error('Content generation failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Content generation failed',
+    });
+  }
+});
+
+// Save generated content to folder
+router.post('/save-content', async (req, res) => {
+  try {
+    const {
+      content,
+      content_type,
+      title,
+      folder_id,
+      tags = [],
+      source_message_id,
+      knowledge_item_id
+    } = req.body;
+
+    if (!content || !content_type || !title || !folder_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Content, content_type, title, and folder_id are required',
+      });
+    }
+
+    // Create generated content record
+    const generatedContent = await SupabaseService.createGeneratedContent({
+      knowledge_item_id,
+      chat_message_id: source_message_id,
+      folder_id,
+      content_type,
+      title,
+      user_title: title,
+      content_data: typeof content === 'string' ? { content } : content,
+      tags,
+    });
+
+    // Add to folder contents
+    await SupabaseService.addToFolder(folder_id, generatedContent.id, 'generated_content');
 
     res.json({
       success: true,
-      data: savedContent,
+      data: generatedContent,
     });
   } catch (error) {
-    logger.error(`Failed to generate ${req.params.type}:`, error);
+    logger.error('Failed to save content:', error);
     res.status(500).json({
       success: false,
-      message: `Failed to generate ${req.params.type}`,
+      message: 'Failed to save content',
     });
   }
 });
 
 // Helper functions
-function extractKeywords(text: string): string[] {
-  // Simple keyword extraction - remove common words and get meaningful terms
-  const commonWords = new Set([
-    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did',
-    'will', 'would', 'could', 'should', 'may', 'might', 'can', 'what', 'how', 'when', 'where',
-    'why', 'who', 'which', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it',
-    'we', 'they', 'me', 'him', 'her', 'us', 'them'
-  ]);
-
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter(word => word.length > 2 && !commonWords.has(word))
-    .slice(0, 10); // Top 10 keywords
-}
-
-async function generateAIResponse(
+async function generateContextualAIResponse(
   userMessage: string,
-  contextText: string,
+  session: any,
   recentMessages: any[]
-): Promise<string> {
+): Promise<{
+  content: string;
+  context_used: any;
+  suggestions?: string[];
+}> {
   try {
+    let contextText = '';
+    let knowledgeItems: any[] = [];
+
+    // Get folder context if session is folder-specific
+    if (session.context_type === 'folder' && session.folder_id) {
+      const folderContents = await SupabaseService.getFolderContents(session.folder_id);
+      knowledgeItems = folderContents.filter(item => item.content_type === 'knowledge_item');
+      
+      // Use top 3 items for context
+      contextText = knowledgeItems.slice(0, 3)
+        .map(item => `Title: ${item.title}\nContent: ${item.extracted_text?.substring(0, 1000) || item.description || ''}`)
+        .join('\n\n');
+    } else {
+      // General context - search for relevant items
+      const searchTerms = extractKeywords(userMessage);
+      if (searchTerms.length > 0) {
+        knowledgeItems = await SupabaseService.searchKnowledgeItems(
+          session.user_id,
+          searchTerms.join(' '),
+          {}
+        );
+        
+        contextText = knowledgeItems.slice(0, 2)
+          .map(item => `Title: ${item.title}\nContent: ${item.extracted_text?.substring(0, 800) || item.description || ''}`)
+          .join('\n\n');
+      }
+    }
+
     // Build conversation context
     const conversationContext = recentMessages
-      .slice(-6) // Last 6 messages for context
+      .slice(-4)
       .map(msg => `${msg.role}: ${msg.content}`)
       .join('\n');
 
-    // Create system prompt
-    const systemPrompt = `You are an AI educational assistant helping students with their uploaded learning materials. 
+    // Generate response
+    const systemPrompt = buildSystemPrompt(contextText, conversationContext, session.context_type);
+    const response = await openaiService.generateResponse(userMessage, systemPrompt);
 
-Context from user's knowledge base:
-${contextText}
+    // Generate suggestions based on context
+    const suggestions = generateSuggestions(userMessage, session.context_type, knowledgeItems.length > 0);
 
-Recent conversation:
-${conversationContext}
+    return {
+      content: response,
+      context_used: {
+        knowledge_items: knowledgeItems.length,
+        context_length: contextText.length,
+        session_type: session.context_type,
+        folder_id: session.folder_id,
+      },
+      suggestions,
+    };
+  } catch (error) {
+    logger.error('AI response generation failed:', error);
+    return {
+      content: "I'm sorry, I'm having trouble processing your request right now. Please try again in a moment.",
+      context_used: { error: true },
+    };
+  }
+}
 
-Guidelines:
+function buildSystemPrompt(contextText: string, conversationContext: string, sessionType: string): string {
+  const basePrompt = `You are an AI educational assistant helping students with their learning materials. You are knowledgeable, encouraging, and provide clear explanations.`;
+  
+  let contextPrompt = '';
+  if (contextText) {
+    contextPrompt = `\n\nRelevant content from user's knowledge base:\n${contextText}`;
+  }
+  
+  let conversationPrompt = '';
+  if (conversationContext) {
+    conversationPrompt = `\n\nRecent conversation:\n${conversationContext}`;
+  }
+
+  const sessionPrompt = sessionType === 'folder' 
+    ? '\n\nYou are currently in a folder-specific context. Focus on the materials in this folder when relevant.'
+    : '\n\nYou have access to the user\'s entire knowledge base. Reference relevant materials when helpful.';
+
+  const guidelines = `\n\nGuidelines:
 - Be helpful, educational, and encouraging
 - Reference the user's uploaded content when relevant
 - Provide clear explanations and examples
 - Suggest study strategies and learning techniques
 - If asked to generate content (mindmaps, notes, summaries), explain what you can create
-- Keep responses concise but informative`;
+- Keep responses concise but informative
+- Use bullet points and formatting for clarity`;
 
-    const response = await openaiService.generateResponse(userMessage, systemPrompt);
-    return response;
-  } catch (error) {
-    logger.error('AI response generation failed:', error);
-    return "I'm sorry, I'm having trouble processing your request right now. Please try again in a moment.";
+  return basePrompt + contextPrompt + conversationPrompt + sessionPrompt + guidelines;
+}
+
+function generateSuggestions(userMessage: string, sessionType: string, hasKnowledge: boolean): string[] {
+  const suggestions = [];
+  
+  if (hasKnowledge) {
+    suggestions.push("Generate a mind map from this content");
+    suggestions.push("Create study notes");
+    suggestions.push("Summarize key points");
   }
+  
+  suggestions.push("Explain this concept in simple terms");
+  suggestions.push("Create practice questions");
+  
+  if (sessionType === 'folder') {
+    suggestions.push("Analyze all content in this folder");
+  }
+  
+  return suggestions.slice(0, 3);
+}
+
+function extractKeywords(text: string): string[] {
+  // Simple keyword extraction
+  const words = text.toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(word => word.length > 3);
+  
+  // Remove common words
+  const stopWords = ['this', 'that', 'with', 'have', 'will', 'from', 'they', 'been', 'have', 'their', 'what', 'when', 'where', 'how'];
+  return words.filter(word => !stopWords.includes(word)).slice(0, 5);
+}
+
+function generateSessionTitle(content: string): string {
+  const words = content.split(' ').slice(0, 6).join(' ');
+  return words.length > 50 ? words.substring(0, 47) + '...' : words;
+}
+
+async function generateChart(content: string, userQuery: string, options: any): Promise<any> {
+  // Placeholder for chart generation
+  // This would integrate with chart libraries to create various visualizations
+  return {
+    type: options.chartType || 'flowchart',
+    data: {
+      nodes: [
+        { id: 'start', label: 'Start', type: 'start' },
+        { id: 'process', label: 'Process', type: 'process' },
+        { id: 'end', label: 'End', type: 'end' }
+      ],
+      edges: [
+        { from: 'start', to: 'process' },
+        { from: 'process', to: 'end' }
+      ]
+    },
+    title: 'Generated Chart'
+  };
 }
 
 export default router; 

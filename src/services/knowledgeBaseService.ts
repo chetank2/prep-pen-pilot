@@ -149,14 +149,29 @@ export class KnowledgeBaseService {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/knowledge-base/items`);
+      // Build query parameters
+      const params = new URLSearchParams();
+      params.append('userId', '550e8400-e29b-41d4-a716-446655440000'); // Valid UUID for demo
+      
+      if (filters?.categoryId) {
+        params.append('categoryId', filters.categoryId);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/knowledge-base/items?${params}`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch knowledge items');
       }
 
       const result = await response.json();
-      return result.data || [];
+      
+      // Handle different response formats
+      if (result.success === false) {
+        throw new Error(result.message || 'API returned error');
+      }
+      
+      // Return the data array, ensuring it's always an array
+      return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
     } catch (error) {
       console.error('Failed to fetch knowledge items:', error);
       // Fallback to direct Supabase
