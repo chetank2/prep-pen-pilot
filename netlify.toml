@@ -43,6 +43,11 @@
 
 # API redirects to Netlify Functions
 [[redirects]]
+  from = "/api/debug/categories"
+  to = "/.netlify/functions/debug-categories"
+  status = 200
+
+[[redirects]]
   from = "/api/knowledge-base/categories"
   to = "/.netlify/functions/knowledge-base-categories"
   status = 200
