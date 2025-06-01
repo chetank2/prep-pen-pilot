@@ -1,0 +1,27 @@
+# Security Headers
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+# Proper MIME types for JavaScript modules
+/assets/*.js
+  Content-Type: application/javascript
+
+# SVG icons MIME type
+/icons/*.svg
+  Content-Type: image/svg+xml
+
+# Service Worker
+/sw.js
+  Content-Type: application/javascript
+  Cache-Control: no-cache
+
+# Manifest
+/manifest.json
+  Content-Type: application/manifest+json
+
+# Fonts
+/fonts/*
+  Cache-Control: public, max-age=31536000 
