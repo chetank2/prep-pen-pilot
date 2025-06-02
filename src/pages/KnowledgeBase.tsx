@@ -20,19 +20,13 @@ import {
 } from 'lucide-react';
 
 export const KnowledgeBase: React.FC = () => {
-  // TODO: Replace with actual user authentication
-  const userId = 'current-user'; // This should come from auth context
-
-  const [activeTab, setActiveTab] = useState<'browse' | 'chat' | 'categories'>('browse');
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {

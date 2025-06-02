@@ -4,6 +4,8 @@ import { KnowledgeItemCard } from './KnowledgeItemCard';
 import { KnowledgeItem } from '../../types/knowledgeBase';
 import { Skeleton } from '../ui/skeleton';
 import { Button } from '../ui/button';
+import { KnowledgeBaseService } from '../../services/knowledgeBaseService';
+import { useToast } from '../../hooks/use-toast';
 
 interface KnowledgeItemsGridProps {
   items: KnowledgeItem[];
@@ -18,6 +20,8 @@ export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
   viewMode = 'grid',
   onItemUpdate,
 }) => {
+  const { toast } = useToast();
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '';
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -44,6 +48,89 @@ export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
       case 'pdf': return FileText;
       case 'image': return FileText;
       default: return FileText;
+    }
+  };
+
+  const handleView = (item: KnowledgeItem) => {
+    // Open the file for viewing based on its type
+    if (item.file_type === 'pdf') {
+      // For PDFs, we can try to open the file URL directly or show extracted content
+      if (item.file_path) {
+        window.open(item.file_path, '_blank');
+      } else if (item.extracted_text) {
+        // Show content in a modal or new tab
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head><title>${item.title}</title></head>
+              <body style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
+                <h1>${item.title}</h1>
+                <p><strong>Description:</strong> ${item.description || 'No description'}</p>
+                <hr>
+                <pre style="white-space: pre-wrap;">${item.extracted_text}</pre>
+              </body>
+            </html>
+          `);
+        }
+      }
+    } else if (item.file_type === 'image') {
+      // Open image in a new tab
+      if (item.file_path) {
+        window.open(item.file_path, '_blank');
+      }
+    } else {
+      // For other file types, show extracted content or file info
+      if (item.extracted_text) {
+        const newWindow = window.open('', '_blank');
+        if (newWindow) {
+          newWindow.document.write(`
+            <html>
+              <head><title>${item.title}</title></head>
+              <body style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
+                <h1>${item.title}</h1>
+                <p><strong>Type:</strong> ${item.file_type}</p>
+                <p><strong>Description:</strong> ${item.description || 'No description'}</p>
+                <hr>
+                <pre style="white-space: pre-wrap;">${item.extracted_text}</pre>
+              </body>
+            </html>
+          `);
+        }
+      } else {
+        toast({
+          title: 'No Content Available',
+          description: 'This file has not been processed yet or content could not be extracted.',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
+  const handleDownload = async (item: KnowledgeItem) => {
+    try {
+      const blob = await KnowledgeBaseService.downloadFile(item.id);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = item.file_name || item.title;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Success',
+        description: 'File downloaded successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to download file',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -153,10 +240,22 @@ export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
                   </div>
                   
                   <div className="col-span-1 flex space-x-1">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleView(item)}
+                      title="View file"
+                    >
                       <Eye className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleDownload(item)}
+                      title="Download file"
+                    >
                       <Download className="w-4 h-4" />
                     </Button>
                   </div>
