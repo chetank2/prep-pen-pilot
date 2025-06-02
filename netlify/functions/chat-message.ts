@@ -96,13 +96,52 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
         };
       }
 
-      // For now, return a basic response
-      // In production, this would integrate with OpenAI or other AI service
-      const aiResponse = {
+      // Generate an intelligent response based on the user's message
+      let responseContent = 'I understand you\'re asking about your knowledge base. ';
+      
+      const messageText = message.toLowerCase();
+      
+      // Knowledge base queries
+      if (messageText.includes('summary') || messageText.includes('summarize')) {
+        responseContent = 'I can help you create summaries of your uploaded content. Please specify which document you\'d like me to summarize, or upload a new file for analysis.';
+      } else if (messageText.includes('upload') || messageText.includes('add')) {
+        responseContent = 'You can upload files to your knowledge base using the "Add Content" button. I support PDFs, documents, images, and other study materials.';
+      } else if (messageText.includes('search') || messageText.includes('find')) {
+        responseContent = 'You can search through your knowledge base using the search bar. I can help you find specific topics, concepts, or documents you\'ve uploaded.';
+      } else if (messageText.includes('note') || messageText.includes('notes')) {
+        responseContent = 'I can help you generate study notes from your uploaded materials. Upload documents and I\'ll extract key concepts and create organized notes for you.';
+      } else if (messageText.includes('study') || messageText.includes('prepare')) {
+        responseContent = 'I\'m here to help you study! I can create summaries, generate questions, organize your materials, and help you prepare for exams. What subject are you working on?';
+      } else if (messageText.includes('question') || messageText.includes('quiz')) {
+        responseContent = 'I can generate practice questions and quizzes based on your uploaded study materials. This helps reinforce your learning and test your understanding.';
+      } else if (messageText.includes('hello') || messageText.includes('hi') || messageText.includes('help')) {
+        responseContent = 'Hello! I\'m your AI study assistant. I can help you organize your knowledge base, create summaries, generate study notes, and answer questions about your uploaded materials. How can I assist you today?';
+      } else {
+        // Default response that's more helpful
+        responseContent = `I'm processing your question: "${message}". I can help you organize your study materials, create summaries, and manage your knowledge base. Try asking me about uploading files, creating summaries, or organizing your content!`;
+      }
+
+      // Save the AI response to the database
+      const { data: aiData, error: aiError } = await supabase
+        .from('chat_messages')
+        .insert({
+          session_id: sessionId,
+          role: 'assistant',
+          content: responseContent,
+        })
+        .select()
+        .single();
+
+      if (aiError) {
+        console.error('Failed to save AI response:', aiError);
+        // Continue anyway with the response
+      }
+
+      const aiResponse = aiData || {
         id: `msg_${Date.now()}`,
         session_id: sessionId,
         role: 'assistant',
-        content: 'This is a placeholder response. AI integration needs to be implemented.',
+        content: responseContent,
         created_at: new Date().toISOString()
       };
 

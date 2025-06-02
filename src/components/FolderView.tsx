@@ -75,7 +75,7 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
           title: note.title,
           folder: note.folderId || 'all',
           modified: formatRelativeTime(note.updatedAt),
-          starred: false, // TODO: Implement starring functionality
+          starred: note.metadata?.starred || false,
           size: note.type === 'canvas' ? '156 KB' : '89 KB' // Estimate
         }));
         allItems.push(...noteItems);
@@ -89,7 +89,7 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
           title: pdf.filename.replace('.pdf', ''),
           folder: 'all', // PDFs don't have folders yet
           modified: formatRelativeTime(pdf.uploadedAt),
-          starred: false,
+          starred: pdf.metadata?.starred || false,
           size: formatFileSize(pdf.size)
         }));
         allItems.push(...pdfItems);

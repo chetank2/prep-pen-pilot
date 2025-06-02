@@ -25,6 +25,7 @@ interface PDFDocument {
   pageCount: number;
   size: number;
   uploadedAt: string;
+  extractedText?: string;
 }
 
 const PDFReader: React.FC<PDFReaderProps> = ({ onModuleChange }) => {
@@ -232,22 +233,42 @@ const PDFReader: React.FC<PDFReaderProps> = ({ onModuleChange }) => {
               }}
               onMouseUp={handleTextSelection}
             >
-              {/* PDF Content Placeholder */}
-              <div className="p-8 border border-slate-200">
-                <div className="text-center text-slate-500 py-20">
-                  <p className="text-lg mb-4">PDF Content (Page {currentPage})</p>
-                  <p className="text-sm">
-                    This is where the actual PDF content would be rendered.
-                    <br />
-                    Select text to use AI features.
-                  </p>
-                  {selectedText && (
-                    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                      <p className="text-sm font-medium text-blue-900">Selected Text:</p>
-                      <p className="text-sm text-blue-700 mt-1">"{selectedText}"</p>
+              {/* PDF Content Display */}
+              <div className="p-8 border border-slate-200 min-h-[800px]">
+                {currentPDF.extractedText ? (
+                  // Show extracted text from the PDF
+                  <div className="prose max-w-none">
+                    <h2 className="text-2xl font-bold mb-4">{currentPDF.filename.replace('.pdf', '')}</h2>
+                    <div className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                      {currentPDF.extractedText}
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  // Fallback content when no text is extracted
+                  <div className="text-center text-slate-500 py-20">
+                    <p className="text-lg mb-4">PDF Content (Page {currentPage})</p>
+                    <p className="text-sm mb-4">
+                      PDF loaded successfully: {currentPDF.filename}
+                      <br />
+                      {currentPDF.pageCount} pages • {(currentPDF.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <div className="bg-blue-50 rounded-lg p-4 max-w-md mx-auto">
+                      <p className="text-sm text-blue-900 font-medium">Interactive PDF Features:</p>
+                      <ul className="text-sm text-blue-700 mt-2 text-left space-y-1">
+                        <li>• Text selection for AI analysis</li>
+                        <li>• Page navigation controls</li>
+                        <li>• Zoom controls</li>
+                        <li>• AI-powered summarization</li>
+                      </ul>
+                    </div>
+                    {selectedText && (
+                      <div className="mt-4 p-4 bg-green-50 rounded-lg max-w-md mx-auto">
+                        <p className="text-sm font-medium text-green-900">Selected Text:</p>
+                        <p className="text-sm text-green-700 mt-1">"{selectedText}"</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
