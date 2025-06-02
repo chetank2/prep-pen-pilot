@@ -9,13 +9,13 @@ import { KnowledgeCategory, KnowledgeItem, UploadData } from '../types/knowledge
 import { KnowledgeBaseService } from '../services/knowledgeBaseService';
 import { useToast } from '../hooks/use-toast';
 import { KnowledgeBaseChat } from '../components/knowledge-base/KnowledgeBaseChat';
-import { KnowledgeBaseItem } from '../components/knowledge-base/KnowledgeBaseItem';
-import { CategoryManagement } from '../components/knowledge-base/CategoryManagement';
 import { SearchFilters } from '../types/knowledgeBase';
 import { Upload, MessageCircle, FolderOpen, Settings } from 'lucide-react';
+
 interface KnowledgeBaseProps {
   onViewFile?: (fileId: string) => void;
 }
+
 export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
   onViewFile
 }) => {

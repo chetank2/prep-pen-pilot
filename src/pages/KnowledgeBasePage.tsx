@@ -237,7 +237,7 @@ export function KnowledgeBasePage() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">AI Processed</p>
                     <p className="text-2xl font-bold">
-                      {knowledgeItems.filter(item => item.ai_summary).length}
+                      {knowledgeItems.filter(item => item.summary).length}
                     </p>
                   </div>
                   <Brain className="w-8 h-8 text-purple-600" />
@@ -281,7 +281,7 @@ export function KnowledgeBasePage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {getCompressionBadge(item)}
-                      {item.ai_summary && (
+                      {item.summary && (
                         <Badge variant="outline" className="text-purple-600">
                           <Sparkles className="w-3 h-3 mr-1" />
                           AI Processed
@@ -367,7 +367,7 @@ export function KnowledgeBasePage() {
                     <div className="space-y-3">
                       <div className="flex flex-wrap gap-1">
                         {getCompressionBadge(item)}
-                        {item.ai_summary && (
+                        {item.summary && (
                           <Badge variant="outline" className="text-purple-600">
                             <Sparkles className="w-3 h-3 mr-1" />
                             AI
@@ -485,4 +485,4 @@ export function KnowledgeBasePage() {
       </Tabs>
     </div>
   );
-} 
+}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,15 +18,8 @@ import {
   Search
 } from 'lucide-react';
 import { KnowledgeBaseService } from '@/services/knowledgeBaseService';
+import { ChatMessage } from '@/types/knowledgeBase';
 import { toast } from 'sonner';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  referencedItems?: string[];
-}
 
 interface KnowledgeBaseChatProps {
   selectedItems?: string[];
@@ -53,9 +47,10 @@ export function KnowledgeBaseChat({ selectedItems = [], className }: KnowledgeBa
     
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}`,
+      conversation_id: 'temp',
       role: 'user',
       content: inputMessage,
-      timestamp: new Date()
+      created_at: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -74,9 +69,10 @@ export function KnowledgeBaseChat({ selectedItems = [], className }: KnowledgeBa
       
       const errorMessage: ChatMessage = {
         id: `error-${Date.now()}`,
+        conversation_id: 'temp',
         role: 'assistant',
         content: 'Sorry, I encountered an error while processing your message. Please try again later.',
-        timestamp: new Date()
+        created_at: new Date().toISOString()
       };
       
       setMessages(prev => [...prev, errorMessage]);
@@ -174,11 +170,11 @@ export function KnowledgeBaseChat({ selectedItems = [], className }: KnowledgeBa
                         <div>{message.content}</div>
                         
                         {/* Referenced Items */}
-                        {message.referencedItems && message.referencedItems.length > 0 && (
+                        {message.referenced_items && message.referenced_items.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-gray-200">
                             <div className="flex items-center gap-1 text-xs text-gray-500">
                               <Search className="w-3 h-3" />
-                              Referenced {message.referencedItems.length} item(s)
+                              Referenced {message.referenced_items.length} item(s)
                             </div>
                           </div>
                         )}
@@ -245,4 +241,4 @@ export function KnowledgeBaseChat({ selectedItems = [], className }: KnowledgeBa
       </Card>
     </div>
   );
-} 
+}
