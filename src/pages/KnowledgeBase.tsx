@@ -106,10 +106,15 @@ export const KnowledgeBase: React.FC = () => {
     }
   };
 
-  const filteredItems = knowledgeItems.filter(item =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredItems = knowledgeItems.filter(item => {
+    if (!item) return false;
+    
+    const searchLower = searchQuery.toLowerCase();
+    const titleMatch = item.title?.toLowerCase().includes(searchLower) || false;
+    const descriptionMatch = item.description?.toLowerCase().includes(searchLower) || false;
+    
+    return titleMatch || descriptionMatch;
+  });
 
   // Calculate stats like the main dashboard
   const stats = [

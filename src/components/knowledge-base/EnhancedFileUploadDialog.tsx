@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -273,6 +273,9 @@ export function EnhancedFileUploadDialog({ trigger, onUploadComplete }: Enhanced
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Enhanced File Upload</DialogTitle>
+          <DialogDescription>
+            Upload and organize your study materials with advanced categorization and AI-powered processing.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

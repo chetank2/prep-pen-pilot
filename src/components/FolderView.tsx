@@ -156,7 +156,7 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
 
   const filteredItems = items.filter(item => {
     const matchesFolder = activeFolder === 'all' || item.folder === activeFolder;
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = item.title && item.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFolder && matchesSearch;
   });
 

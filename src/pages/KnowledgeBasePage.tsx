@@ -137,10 +137,12 @@ export function KnowledgeBasePage() {
   };
 
   const filteredItems = knowledgeItems.filter(item => {
+    if (!item) return false;
+    
     const matchesCategory = !selectedCategory || item.category_id === selectedCategory;
     const matchesSearch = !searchQuery || 
-      (item.title && item.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      item.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 

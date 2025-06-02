@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -106,6 +107,9 @@ export const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader className="pb-4">
           <DialogTitle className="text-xl font-semibold text-slate-900">Add Content to Knowledge Base</DialogTitle>
+          <DialogDescription>
+            Upload and organize your study materials for AI-powered analysis and study assistance.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
