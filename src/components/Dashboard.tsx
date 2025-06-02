@@ -10,9 +10,11 @@ import {
   Calendar,
   CheckCircle,
   Database,
-  MessageCircle
+  MessageCircle,
+  FileText,
+  Brain
 } from 'lucide-react';
-import { apiService } from '../services/api';
+import { KnowledgeBaseService } from '../services/knowledgeBaseService';
 
 interface DashboardProps {
   onModuleChange: (module: string) => void;
@@ -20,7 +22,7 @@ interface DashboardProps {
 
 interface RecentItem {
   id: string;
-  type: 'pdf' | 'note' | 'mindmap';
+  type: 'pdf' | 'note' | 'mindmap' | 'knowledge';
   title: string;
   date: string;
   progress?: number;
@@ -51,45 +53,42 @@ const Dashboard: React.FC<DashboardProps> = ({ onModuleChange }) => {
     try {
       setLoading(true);
       
-      // Fetch recent notes and PDFs
-      const [notesResponse, pdfsResponse] = await Promise.all([
-        apiService.getNotes(),
-        apiService.getPDFs()
-      ]);
+      // Load from Knowledge Base instead of old API endpoints
+      const knowledgeItems = await KnowledgeBaseService.getKnowledgeItems();
 
-      // Combine and format recent items
-      const recentNotes: RecentItem[] = notesResponse.data?.slice(0, 2).map((note: any) => ({
-        id: note.id,
-        type: (note.type === 'canvas' ? 'note' : 'mindmap') as 'note' | 'mindmap',
-        title: note.title,
-        date: formatRelativeTime(note.createdAt),
-        progress: 100 // Notes are considered complete when created
-      })) || [];
+      // Convert knowledge items to recent items
+      const recentKnowledgeItems: RecentItem[] = knowledgeItems.slice(0, 3).map((item) => ({
+        id: item.id,
+        type: 'knowledge' as const,
+        title: item.title,
+        date: formatRelativeTime(item.created_at),
+        progress: item.processing_status === 'completed' ? 100 : 
+                 item.processing_status === 'processing' ? 50 : 0
+      }));
 
-      const recentPDFs: RecentItem[] = pdfsResponse.data?.slice(0, 1).map((pdf: any) => ({
-        id: pdf.id,
-        type: 'pdf' as const,
-        title: pdf.filename.replace('.pdf', ''),
-        date: formatRelativeTime(pdf.uploadedAt),
-        progress: pdf.progress || 100 // Use real progress or mark as complete
-      })) || [];
+      setRecentItems(recentKnowledgeItems);
 
-      setRecentItems([...recentPDFs, ...recentNotes]);
-
-      // Calculate stats
-      const canvasNotes = notesResponse.data?.filter((note: any) => note.type === 'canvas') || [];
-      const mindMaps = notesResponse.data?.filter((note: any) => note.type === 'mindmap') || [];
-      const pdfs = pdfsResponse.data || [];
+      // Calculate stats from knowledge base
+      const completedItems = knowledgeItems.filter(item => item.processing_status === 'completed');
+      const pdfItems = knowledgeItems.filter(item => item.file_type === 'pdf');
+      const textItems = knowledgeItems.filter(item => item.file_type === 'text');
       
       setStats({
-        topicsCovered: pdfs.length * 12, // Estimate topics per PDF
-        notesCreated: canvasNotes.length,
-        hoursStudied: Math.floor((canvasNotes.length + mindMaps.length + pdfs.length) * 2.5), // Estimate
-        mindMaps: mindMaps.length
+        topicsCovered: completedItems.length * 8, // Estimate topics per item
+        notesCreated: textItems.length,
+        hoursStudied: Math.floor(knowledgeItems.length * 1.5), // Estimate study time
+        mindMaps: Math.floor(completedItems.length * 0.3) // Estimate mind maps potential
       });
 
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
+      // Set default stats if loading fails
+      setStats({
+        topicsCovered: 0,
+        notesCreated: 0,
+        hoursStudied: 0,
+        mindMaps: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -245,11 +244,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onModuleChange }) => {
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                     item.type === 'pdf' ? 'bg-red-100 text-red-600' :
                     item.type === 'note' ? 'bg-blue-100 text-blue-600' :
-                    'bg-purple-100 text-purple-600'
+                    item.type === 'mindmap' ? 'bg-purple-100 text-purple-600' :
+                    'bg-orange-100 text-orange-600'
                   }`}>
                     {item.type === 'pdf' && <BookOpen className="w-5 h-5" />}
                     {item.type === 'note' && <PenTool className="w-5 h-5" />}
                     {item.type === 'mindmap' && <GitBranch className="w-5 h-5" />}
+                    {item.type === 'knowledge' && <Brain className="w-5 h-5" />}
                   </div>
                   <div>
                     <h3 className="font-medium text-slate-900">{item.title}</h3>

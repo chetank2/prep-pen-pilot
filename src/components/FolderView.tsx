@@ -10,9 +10,11 @@ import {
   MoreVertical,
   Star,
   Clock,
-  Loader2
+  Loader2,
+  Upload,
+  Brain
 } from 'lucide-react';
-import { apiService } from '../services/api';
+import { KnowledgeBaseService } from '../services/knowledgeBaseService';
 
 interface FolderViewProps {
   onModuleChange: (module: string) => void;
@@ -20,7 +22,7 @@ interface FolderViewProps {
 
 interface Item {
   id: string;
-  type: 'pdf' | 'note' | 'mindmap';
+  type: 'pdf' | 'note' | 'mindmap' | 'knowledge';
   title: string;
   folder: string;
   modified: string;
@@ -41,13 +43,11 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<Item[]>([]);
   const [folders, setFolders] = useState<Folder[]>([
-    { id: 'all', name: 'All Items', count: 0, color: 'bg-slate-500' },
-    { id: 'gs1', name: 'General Studies I', count: 0, color: 'bg-blue-500' },
-    { id: 'gs2', name: 'General Studies II', count: 0, color: 'bg-green-500' },
-    { id: 'gs3', name: 'General Studies III', count: 0, color: 'bg-purple-500' },
-    { id: 'gs4', name: 'General Studies IV', count: 0, color: 'bg-orange-500' },
-    { id: 'optional', name: 'Optional Subject', count: 0, color: 'bg-red-500' },
-    { id: 'essay', name: 'Essay Writing', count: 0, color: 'bg-pink-500' },
+    { id: 'all', name: 'All Items', count: 0, color: 'bg-slate-400' },
+    { id: 'recent', name: 'Recent', count: 0, color: 'bg-blue-400' },
+    { id: 'starred', name: 'Starred', count: 0, color: 'bg-yellow-400' },
+    { id: 'pdfs', name: 'PDFs', count: 0, color: 'bg-red-400' },
+    { id: 'notes', name: 'Notes', count: 0, color: 'bg-green-400' },
   ]);
   const [loading, setLoading] = useState(true);
 
@@ -59,51 +59,47 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
     try {
       setLoading(true);
       
-      // Fetch notes and PDFs
-      const [notesResponse, pdfsResponse] = await Promise.all([
-        apiService.getNotes(),
-        apiService.getPDFs()
-      ]);
+      // Load from Knowledge Base
+      const knowledgeItems = await KnowledgeBaseService.getKnowledgeItems();
 
-      const allItems: Item[] = [];
+      // Convert knowledge items to folder items
+      const folderItems: Item[] = knowledgeItems.map((item) => ({
+        id: item.id,
+        type: 'knowledge' as const,
+        title: item.title,
+        folder: 'all',
+        modified: formatRelativeTime(item.created_at),
+        starred: false, // Add starring functionality later
+        size: formatFileSize(item.file_size || 0)
+      }));
 
-      // Process notes
-      if (notesResponse.success && notesResponse.data) {
-        const noteItems: Item[] = notesResponse.data.map((note: any) => ({
-          id: note.id,
-          type: (note.type === 'canvas' ? 'note' : 'mindmap') as 'note' | 'mindmap',
-          title: note.title,
-          folder: note.folderId || 'all',
-          modified: formatRelativeTime(note.updatedAt),
-          starred: note.metadata?.starred || false,
-          size: note.type === 'canvas' ? '156 KB' : '89 KB' // Estimate
-        }));
-        allItems.push(...noteItems);
-      }
-
-      // Process PDFs
-      if (pdfsResponse.success && pdfsResponse.data) {
-        const pdfItems = pdfsResponse.data.map((pdf: any) => ({
-          id: pdf.id,
-          type: 'pdf' as const,
-          title: pdf.filename.replace('.pdf', ''),
-          folder: 'all', // PDFs don't have folders yet
-          modified: formatRelativeTime(pdf.uploadedAt),
-          starred: pdf.metadata?.starred || false,
-          size: formatFileSize(pdf.size)
-        }));
-        allItems.push(...pdfItems);
-      }
-
-      setItems(allItems);
+      setItems(folderItems);
 
       // Update folder counts
       const updatedFolders = folders.map(folder => {
         if (folder.id === 'all') {
-          return { ...folder, count: allItems.length };
+          return { ...folder, count: folderItems.length };
+        } else if (folder.id === 'recent') {
+          // Recent items (last 7 days)
+          const recentCount = folderItems.filter(item => {
+            const itemDate = new Date(item.modified);
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            return itemDate > weekAgo;
+          }).length;
+          return { ...folder, count: recentCount };
+        } else if (folder.id === 'starred') {
+          const starredCount = folderItems.filter(item => item.starred).length;
+          return { ...folder, count: starredCount };
+        } else if (folder.id === 'pdfs') {
+          const pdfCount = knowledgeItems.filter(item => item.file_type === 'pdf').length;
+          return { ...folder, count: pdfCount };
+        } else if (folder.id === 'notes') {
+          const notesCount = knowledgeItems.filter(item => 
+            item.file_type === 'text' || item.file_name?.endsWith('.md')
+          ).length;
+          return { ...folder, count: notesCount };
         }
-        const count = allItems.filter(item => item.folder === folder.id).length;
-        return { ...folder, count };
+        return folder;
       });
       setFolders(updatedFolders);
 
@@ -141,6 +137,7 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
       case 'pdf': return FileText;
       case 'note': return PenTool;
       case 'mindmap': return GitBranch;
+      case 'knowledge': return Brain;
       default: return FileText;
     }
   };
@@ -150,6 +147,7 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
       case 'pdf': return 'text-red-500 bg-red-50';
       case 'note': return 'text-blue-500 bg-blue-50';
       case 'mindmap': return 'text-purple-500 bg-purple-50';
+      case 'knowledge': return 'text-green-500 bg-green-50';
       default: return 'text-slate-500 bg-slate-50';
     }
   };
@@ -293,6 +291,7 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
                         if (item.type === 'pdf') onModuleChange('pdf-reader');
                         else if (item.type === 'note') onModuleChange('canvas');
                         else if (item.type === 'mindmap') onModuleChange('mindmap');
+                        else if (item.type === 'knowledge') onModuleChange('knowledge');
                       }}
                     >
                       <div className="flex items-start justify-between mb-3">
@@ -346,6 +345,7 @@ const FolderView: React.FC<FolderViewProps> = ({ onModuleChange }) => {
                           if (item.type === 'pdf') onModuleChange('pdf-reader');
                           else if (item.type === 'note') onModuleChange('canvas');
                           else if (item.type === 'mindmap') onModuleChange('mindmap');
+                          else if (item.type === 'knowledge') onModuleChange('knowledge');
                         }}
                       >
                         <div className="grid grid-cols-12 gap-4 items-center">
