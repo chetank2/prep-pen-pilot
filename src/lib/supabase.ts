@@ -4,14 +4,23 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Check if Supabase is configured
-const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey);
+const isSupabaseConfigured = !!(supabaseUrl && supabaseAnonKey && 
+  supabaseUrl !== 'your_supabase_project_url' && 
+  supabaseAnonKey !== 'your_supabase_anon_key' &&
+  supabaseUrl.startsWith('https://') &&
+  supabaseUrl.includes('.supabase.co'));
 
 // Only log warning instead of throwing error
 if (!isSupabaseConfigured) {
-  console.warn('Supabase environment variables not set. Database features will be disabled.');
+  console.warn('Supabase environment variables not set or invalid. Database features will be disabled.');
+  console.warn('Current values:', { 
+    hasUrl: !!supabaseUrl, 
+    hasKey: !!supabaseAnonKey,
+    urlValue: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'undefined'
+  });
 }
 
-// Create supabase client with fallback values to prevent errors
+// Create supabase client with safe fallback values to prevent errors
 export const supabase = isSupabaseConfigured 
   ? createClient(supabaseUrl!, supabaseAnonKey!, {
       auth: {
@@ -25,7 +34,7 @@ export const supabase = isSupabaseConfigured
         },
       },
     })
-  : createClient('https://placeholder.supabase.co', 'placeholder-key', {
+  : createClient('https://placeholder.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI3MjAsImV4cCI6MTk2MDc2ODcyMH0.placeholder', {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
