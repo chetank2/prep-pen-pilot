@@ -46,6 +46,7 @@ export const API_ENDPOINTS = {
   LEGACY: {
     PDF: '/pdf',
     NOTES: '/notes',
+    FOLDERS: '/folders',
   },
 };
 

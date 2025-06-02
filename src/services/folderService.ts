@@ -1,9 +1,8 @@
 import { Folder, FolderContent, FolderStats } from '../types/chat';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import { getApiUrl, API_ENDPOINTS } from '../lib/config';
 
 export class FolderService {
-  private static readonly BASE_URL = `${API_BASE_URL}/folders`;
+  private static readonly BASE_URL = getApiUrl(API_ENDPOINTS.LEGACY.FOLDERS || '/folders');
 
   // Get all folders for user
   static async getFolders(): Promise<Folder[]> {
@@ -212,11 +211,17 @@ export class FolderService {
   }
 
   static getColorVariants(color: string) {
-    return {
-      bg: `bg-${color}-100`,
-      text: `text-${color}-600`,
-      border: `border-${color}-200`,
-      hover: `hover:bg-${color}-50`,
+    const colorMap: Record<string, any> = {
+      '#3B82F6': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
+      '#F59E0B': { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-200' },
+      '#84CC16': { bg: 'bg-lime-100', text: 'text-lime-800', border: 'border-lime-200' },
+      '#EC4899': { bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-200' },
+      '#06B6D4': { bg: 'bg-cyan-100', text: 'text-cyan-800', border: 'border-cyan-200' },
+      '#8B5CF6': { bg: 'bg-violet-100', text: 'text-violet-800', border: 'border-violet-200' },
+      '#EF4444': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' },
+      '#10B981': { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200' },
     };
+    
+    return colorMap[color] || { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' };
   }
 } 
