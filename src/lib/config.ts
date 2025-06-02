@@ -20,6 +20,9 @@ export const API_CONFIG = {
   USE_NETLIFY_FUNCTIONS: !isDevelopment || isNetlifyProduction,
 };
 
+// Legacy compatibility export
+export const API_BASE_URL = API_CONFIG.BASE_URL;
+
 // Supabase Configuration
 export const SUPABASE_CONFIG = {
   URL: import.meta.env.VITE_SUPABASE_URL,
@@ -88,6 +91,12 @@ export const APP_CONFIG = {
   VERSION: '2.0.0',
   ENVIRONMENT: isDevelopment ? 'development' : 'production',
   DEBUG_MODE: isDevelopment,
+  chat: {
+    maxFilesPerMessage: 5,
+    maxMessageLength: 10000,
+    allowedFileTypes: ['pdf', 'txt', 'md', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif'],
+    maxFileSize: 50 * 1024 * 1024, // 50MB
+  },
 };
 
 // Rate Limiting Configuration
@@ -96,6 +105,51 @@ export const RATE_LIMIT_CONFIG = {
   MAX_REQUESTS: 100,
   UPLOAD_LIMIT: 50,
   CHAT_LIMIT: 200,
+};
+
+// Utility Functions
+export const validateFile = (file: File): { valid: boolean; error?: string } => {
+  // Check file size
+  if (file.size > STORAGE_CONFIG.MAX_FILE_SIZE) {
+    return {
+      valid: false,
+      error: `File size exceeds ${formatFileSize(STORAGE_CONFIG.MAX_FILE_SIZE)} limit`
+    };
+  }
+
+  // Check file type
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  if (fileExtension && !STORAGE_CONFIG.ALLOWED_TYPES.includes(fileExtension)) {
+    return {
+      valid: false,
+      error: `File type .${fileExtension} is not supported`
+    };
+  }
+
+  // Check for chat-specific limits
+  if (file.size > APP_CONFIG.chat.maxFileSize) {
+    return {
+      valid: false,
+      error: `File size exceeds chat limit of ${formatFileSize(APP_CONFIG.chat.maxFileSize)}`
+    };
+  }
+
+  const chatFileExtension = fileExtension || '';
+  if (!APP_CONFIG.chat.allowedFileTypes.includes(chatFileExtension)) {
+    return {
+      valid: false,
+      error: `File type .${chatFileExtension} is not supported in chat`
+    };
+  }
+
+  return { valid: true };
+};
+
+export const formatFileSize = (bytes: number): string => {
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  if (bytes === 0) return '0 Bytes';
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
 };
 
 export default {
@@ -107,4 +161,6 @@ export default {
   RATE_LIMIT_CONFIG,
   getApiUrl,
   checkBackendAvailability,
+  validateFile,
+  formatFileSize,
 }; 

@@ -1,11 +1,10 @@
 import { KnowledgeCategory, KnowledgeItem, GeneratedContent } from '../types/knowledgeBase';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import { getApiUrl, API_ENDPOINTS } from '../lib/config';
 
 class KnowledgeBaseAPI {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     try {
-      const response = await fetch(`${API_BASE_URL}/knowledge-base${endpoint}`, {
+      const response = await fetch(`${getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.CATEGORIES.replace('/categories', ''))}${endpoint}`, {
         headers: {
           'Content-Type': 'application/json',
           ...options?.headers,
@@ -101,7 +100,7 @@ class KnowledgeBaseAPI {
         reject(new Error('Upload failed'));
       });
 
-      xhr.open('POST', `${API_BASE_URL}/knowledge-base/upload`);
+      xhr.open('POST', getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.UPLOAD));
       xhr.send(formData);
     });
   }

@@ -1,10 +1,6 @@
 import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -35,11 +31,28 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     return {
       statusCode: 405,
       headers,
-      body: JSON.stringify({ success: false, message: 'Method not allowed' }),
+      body: JSON.stringify({ error: 'Method not allowed' }),
     };
   }
 
   try {
+    // Use frontend environment variables (VITE_*) since this function serves frontend requests
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ 
+          error: 'Database configuration missing',
+          details: 'Supabase environment variables not set'
+        }),
+      };
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     // Get compression stats from database
     const { data, error } = await supabase
       .from('knowledge_items')
@@ -47,7 +60,17 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       .not('file_size', 'is', null)
       .not('compressed_size', 'is', null);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Database error:', error);
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ 
+          error: 'Database query failed',
+          details: error.message
+        }),
+      };
+    }
 
     let totalOriginalSize = 0;
     let totalCompressedSize = 0;
@@ -79,15 +102,14 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       headers,
       body: JSON.stringify({ success: true, data: stats }),
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Compression stats function error:', error);
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({ 
-        success: false, 
-        message: 'Failed to get compression stats',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Internal server error',
+        message: error.message
       }),
     };
   }

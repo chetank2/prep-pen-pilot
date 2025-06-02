@@ -1,10 +1,6 @@
 import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
 export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
   // Enable CORS
   const headers = {
@@ -24,6 +20,23 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
   }
 
   try {
+    // Use frontend environment variables (VITE_*) since this function serves frontend requests
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseKey) {
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ 
+          error: 'Database configuration missing',
+          details: 'Supabase environment variables not set'
+        }),
+      };
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     if (event.httpMethod === 'GET') {
       // Get all notes - map from user_content
       const { data, error } = await supabase
@@ -32,7 +45,17 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
         .in('content_type', ['notes', 'annotation', 'mindmap'])
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        return {
+          statusCode: 500,
+          headers,
+          body: JSON.stringify({ 
+            error: 'Database query failed',
+            details: error.message
+          }),
+        };
+      }
 
       // Transform to match old API format
       const notes = (data || []).map(item => ({
@@ -57,17 +80,16 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     return {
       statusCode: 405,
       headers,
-      body: JSON.stringify({ success: false, message: 'Method not allowed' }),
+      body: JSON.stringify({ error: 'Method not allowed' }),
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Notes function error:', error);
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({ 
-        success: false, 
-        message: 'Failed to get notes',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Internal server error',
+        message: error.message
       }),
     };
   }

@@ -24,6 +24,12 @@
 [functions]
   directory = "netlify/functions"
 
+[dev]
+  command = "npm run dev"
+  targetPort = 8888
+  port = 8888
+  autoLaunch = true
+
 # Headers for proper MIME types
 [[headers]]
   for = "/assets/*.js"
