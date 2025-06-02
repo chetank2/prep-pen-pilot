@@ -137,26 +137,45 @@ export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
 
   const handleDownload = async (item: KnowledgeItem) => {
     try {
+      console.log('Starting download for item:', item.id);
       const blob = await KnowledgeBaseService.downloadFile(item.id);
+      
+      // Create a proper filename with extension
+      let fileName = item.file_name || item.title;
+      const hasExtension = fileName.includes('.');
+      
+      if (!hasExtension) {
+        // Add appropriate extension based on file type or content type
+        const extension = item.file_type === 'text' ? '.txt' : 
+                         item.file_type === 'pdf' ? '.pdf' :
+                         item.file_type === 'image' ? '.jpg' :
+                         item.file_type === 'video' ? '.mp4' :
+                         item.file_type === 'audio' ? '.mp3' : '.txt';
+        fileName += extension;
+      }
       
       // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = item.file_name || item.title;
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
+      console.log('Download completed successfully for:', fileName);
       toast({
-        title: 'Success',
-        description: 'File downloaded successfully',
+        title: 'Download Complete',
+        description: `${fileName} downloaded successfully`,
       });
     } catch (error) {
+      console.error('Download failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       toast({
-        title: 'Error',
-        description: 'Failed to download file',
+        title: 'Download Failed',
+        description: `Unable to download file: ${errorMessage}`,
         variant: 'destructive',
       });
     }

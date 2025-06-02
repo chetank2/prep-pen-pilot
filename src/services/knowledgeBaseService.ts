@@ -676,42 +676,55 @@ export class KnowledgeBaseService {
     try {
       const item = await this.getKnowledgeItemById(knowledgeItemId);
       
-      if (!item.file_path) {
-        throw new Error('File path not found');
-      }
+      // Try to download from Supabase Storage first if file_path exists
+      if (item.file_path) {
+        try {
+          const { data: fileData, error: downloadError } = await supabase
+            .storage
+            .from('knowledge-base-files')
+            .download(item.file_path);
 
-      // Try to download from Supabase Storage first
-      try {
-        const { data: fileData, error: downloadError } = await supabase
-          .storage
-          .from('knowledge-base-files')
-          .download(item.file_path);
-
-        if (!downloadError && fileData) {
-          return fileData;
+          if (!downloadError && fileData) {
+            return fileData;
+          }
+        } catch (storageError) {
+          console.warn('Supabase storage download failed:', storageError);
         }
-      } catch (storageError) {
-        console.warn('Supabase storage download failed:', storageError);
       }
 
-      // Fallback: try to fetch from API
+      // Fallback: try to fetch from API if backend is available
       const backendAvailable = await isBackendAvailable();
       
       if (backendAvailable) {
-        const response = await fetch(`${API_CONFIG.DEVELOPMENT_API}/knowledge-base/items/${knowledgeItemId}/download`);
-        if (response.ok) {
-          return await response.blob();
+        try {
+          const response = await fetch(`${API_CONFIG.DEVELOPMENT_API}/knowledge-base/items/${knowledgeItemId}/download`);
+          if (response.ok) {
+            return await response.blob();
+          }
+        } catch (apiError) {
+          console.warn('API download failed:', apiError);
         }
       }
 
-      // Last resort: create a text file from extracted content
+      // Create a text file from extracted content
       if (item.extracted_text) {
         const textContent = `Title: ${item.title}\n\nDescription: ${item.description || 'No description'}\n\nContent:\n${item.extracted_text}`;
-        return new Blob([textContent], { type: 'text/plain' });
+        const fileName = item.file_name || `${item.title}.txt`;
+        const fileExtension = fileName.split('.').pop()?.toLowerCase();
+        
+        // Determine appropriate MIME type
+        let mimeType = 'text/plain';
+        if (fileExtension === 'md') {
+          mimeType = 'text/markdown';
+        } else if (fileExtension === 'json') {
+          mimeType = 'application/json';
+        }
+        
+        return new Blob([textContent], { type: mimeType });
       }
 
       // If no content available, create a minimal info file
-      const infoContent = `Title: ${item.title}\nDescription: ${item.description || 'No description'}\nFile Type: ${item.file_type}\nCreated: ${item.created_at}`;
+      const infoContent = `Title: ${item.title}\nDescription: ${item.description || 'No description'}\nFile Type: ${item.file_type}\nCreated: ${item.created_at}\n\nNote: This file was processed as text content. The original file data is not available for download.`;
       return new Blob([infoContent], { type: 'text/plain' });
 
     } catch (error) {
