@@ -153,6 +153,10 @@ export const dbHelpers = {
       `)
       .order('created_at', { ascending: false });
 
+    // Always filter by userId - use a default if none provided
+    const userId = filters?.userId || 'current-user';
+    query = query.eq('user_id', userId);
+
     if (filters?.categoryId) {
       query = query.eq('category_id', filters.categoryId);
     }
@@ -167,7 +171,7 @@ export const dbHelpers = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    return data || [];
   },
 
   // Create knowledge item

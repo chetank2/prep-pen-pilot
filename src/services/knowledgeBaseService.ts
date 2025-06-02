@@ -159,21 +159,41 @@ export class KnowledgeBaseService {
     const backendAvailable = await isBackendAvailable();
     
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('uploadData', JSON.stringify(uploadData));
-
       const url = backendAvailable 
         ? `${API_CONFIG.DEVELOPMENT_API}/knowledge-base/upload`
         : getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.UPLOAD);
 
-      const response = await fetch(url, {
-        method: 'POST',
-        body: formData,
-      });
+      // For Netlify functions, send as JSON instead of FormData for now
+      if (!backendAvailable) {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            uploadData: JSON.stringify(uploadData),
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+          }),
+        });
 
-      const result = await handleApiResponse<KnowledgeItem>(response);
-      return result;
+        const result = await handleApiResponse<KnowledgeItem>(response);
+        return result;
+      } else {
+        // Use FormData for backend
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('uploadData', JSON.stringify(uploadData));
+
+        const response = await fetch(url, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await handleApiResponse<KnowledgeItem>(response);
+        return result;
+      }
     } catch (error) {
       console.error('File upload failed:', error);
       throw new Error(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -187,11 +207,13 @@ export class KnowledgeBaseService {
     try {
       // Build query parameters
       const params = new URLSearchParams();
+      
+      // Always include userId - use default if not provided
+      const userId = filters?.userId || 'current-user';
+      params.append('userId', userId);
+      
       if (filters?.categoryId) {
         params.append('categoryId', filters.categoryId);
-      }
-      if (filters?.userId) {
-        params.append('userId', filters.userId);
       }
 
       const url = backendAvailable 
@@ -204,9 +226,12 @@ export class KnowledgeBaseService {
     } catch (error) {
       console.error('Failed to fetch knowledge items:', error);
       
-      // Fallback to direct Supabase
+      // Fallback to direct Supabase with proper filters
       try {
-        return await dbHelpers.getKnowledgeItems(filters);
+        return await dbHelpers.getKnowledgeItems({
+          ...filters,
+          userId: filters?.userId || 'current-user'
+        });
       } catch (fallbackError) {
         console.error('Fallback also failed:', fallbackError);
         return [];

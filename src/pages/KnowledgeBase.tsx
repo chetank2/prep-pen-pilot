@@ -90,17 +90,20 @@ export const KnowledgeBase: React.FC = () => {
 
       const newItem = await KnowledgeBaseService.uploadFile(file, uploadData);
 
-      setKnowledgeItems(prev => [newItem, ...prev]);
+      // Refresh the entire list to make sure we have the latest data
+      await loadKnowledgeItems();
+      
       setShowUploadDialog(false);
       
       toast({
         title: 'Success',
-        description: 'File uploaded successfully',
+        description: `File "${title}" uploaded successfully`,
       });
     } catch (error) {
+      console.error('Upload error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to upload file',
+        description: 'Failed to upload file. Please try again.',
         variant: 'destructive',
       });
     }
