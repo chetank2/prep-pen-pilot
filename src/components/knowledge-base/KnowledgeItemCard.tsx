@@ -84,18 +84,12 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
   };
 
   const handleView = () => {
-    console.log('View button clicked for item:', item);
-    console.log('Item file_path:', item.file_path);
-    console.log('Item extracted_text length:', item.extracted_text?.length || 0);
-    
     // Open the file for viewing based on its type
     if (item.file_type === 'pdf') {
       // For PDFs, we can try to open the file URL directly or show extracted content
       if (item.file_path) {
-        console.log('Opening PDF file path:', item.file_path);
         window.open(item.file_path, '_blank');
       } else if (item.extracted_text) {
-        console.log('Showing PDF extracted text');
         // Show content in a modal or new tab
         const newWindow = window.open('', '_blank');
         if (newWindow) {
@@ -112,7 +106,6 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
           `);
         }
       } else {
-        console.log('No PDF content available');
         toast({
           title: 'No Content Available',
           description: 'This PDF has not been processed yet or content could not be extracted.',
@@ -122,10 +115,8 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
     } else if (item.file_type === 'image') {
       // Open image in a new tab
       if (item.file_path) {
-        console.log('Opening image file path:', item.file_path);
         window.open(item.file_path, '_blank');
       } else {
-        console.log('No image file path available');
         toast({
           title: 'Image Not Available',
           description: 'The image file could not be found.',
@@ -135,10 +126,8 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
     } else if (item.file_type === 'video') {
       // For videos, try to open the file URL
       if (item.file_path) {
-        console.log('Opening video file path:', item.file_path);
         window.open(item.file_path, '_blank');
       } else {
-        console.log('No video file path available');
         toast({
           title: 'Video Not Available',
           description: 'The video file could not be found.',
@@ -148,10 +137,8 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
     } else if (item.file_type === 'audio') {
       // For audio, try to open the file URL
       if (item.file_path) {
-        console.log('Opening audio file path:', item.file_path);
         window.open(item.file_path, '_blank');
       } else {
-        console.log('No audio file path available');
         toast({
           title: 'Audio Not Available',
           description: 'The audio file could not be found.',
@@ -161,7 +148,6 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
     } else {
       // For other file types (text, etc.), show extracted content or file info
       if (item.extracted_text) {
-        console.log('Showing extracted text for file type:', item.file_type);
         const newWindow = window.open('', '_blank');
         if (newWindow) {
           newWindow.document.write(`
@@ -178,11 +164,9 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
           `);
         }
       } else if (item.file_path) {
-        console.log('Opening file path directly:', item.file_path);
         // Try to open the file directly
         window.open(item.file_path, '_blank');
       } else {
-        console.log('No content available for file type:', item.file_type);
         toast({
           title: 'No Content Available',
           description: 'This file has not been processed yet or content could not be extracted.',

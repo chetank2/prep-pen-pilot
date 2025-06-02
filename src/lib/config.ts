@@ -10,14 +10,12 @@ export const API_CONFIG = {
   DEVELOPMENT_API: 'http://localhost:3001/api',
   NETLIFY_API: '/api', // Uses Netlify redirects
   
-  // Current API base URL
-  BASE_URL: isDevelopment 
-    ? (import.meta.env.VITE_API_URL || 'http://localhost:3001/api')
-    : '/api', // Always use Netlify functions in production
+  // Current API base URL - Always use Netlify functions now
+  BASE_URL: '/api', // Always use Netlify functions for consistency
   
-  // Feature flags
-  USE_BACKEND_FALLBACK: isDevelopment,
-  USE_NETLIFY_FUNCTIONS: !isDevelopment || isNetlifyProduction,
+  // Feature flags - Disable backend fallback to prevent localhost:3001 calls
+  USE_BACKEND_FALLBACK: false, // Changed from isDevelopment
+  USE_NETLIFY_FUNCTIONS: true, // Always use Netlify functions
 };
 
 // Legacy compatibility export
