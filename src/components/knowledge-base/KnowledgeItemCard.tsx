@@ -28,6 +28,7 @@ import { useToast } from '../../hooks/use-toast';
 interface KnowledgeItemCardProps {
   item: KnowledgeItem;
   onUpdate: () => void;
+  onViewFile?: (fileId: string) => void;
 }
 
 const fileTypeIcons = {
@@ -56,6 +57,7 @@ const statusLabels = {
 export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
   item,
   onUpdate,
+  onViewFile,
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
@@ -84,95 +86,21 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
   };
 
   const handleView = () => {
-    // Open the file for viewing based on its type
-    if (item.file_type === 'pdf') {
-      // For PDFs, we can try to open the file URL directly or show extracted content
-      if (item.file_path) {
-        window.open(item.file_path, '_blank');
-      } else if (item.extracted_text) {
-        // Show content in a modal or new tab
-        const newWindow = window.open('', '_blank');
-        if (newWindow) {
-          newWindow.document.write(`
-            <html>
-              <head><title>${item.title}</title></head>
-              <body style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
-                <h1>${item.title}</h1>
-                <p><strong>Description:</strong> ${item.description || 'No description'}</p>
-                <hr>
-                <pre style="white-space: pre-wrap;">${item.extracted_text}</pre>
-              </body>
-            </html>
-          `);
-        }
-      } else {
-        toast({
-          title: 'No Content Available',
-          description: 'This PDF has not been processed yet or content could not be extracted.',
-          variant: 'destructive',
-        });
-      }
-    } else if (item.file_type === 'image') {
-      // Open image in a new tab
-      if (item.file_path) {
-        window.open(item.file_path, '_blank');
-      } else {
-        toast({
-          title: 'Image Not Available',
-          description: 'The image file could not be found.',
-          variant: 'destructive',
-        });
-      }
-    } else if (item.file_type === 'video') {
-      // For videos, try to open the file URL
-      if (item.file_path) {
-        window.open(item.file_path, '_blank');
-      } else {
-        toast({
-          title: 'Video Not Available',
-          description: 'The video file could not be found.',
-          variant: 'destructive',
-        });
-      }
-    } else if (item.file_type === 'audio') {
-      // For audio, try to open the file URL
-      if (item.file_path) {
-        window.open(item.file_path, '_blank');
-      } else {
-        toast({
-          title: 'Audio Not Available',
-          description: 'The audio file could not be found.',
-          variant: 'destructive',
-        });
-      }
+    // Use the new file viewer if available
+    if (onViewFile) {
+      onViewFile(item.id);
+      return;
+    }
+
+    // Fallback to the old method
+    if (item.file_path) {
+      window.open(item.file_path, '_blank');
     } else {
-      // For other file types (text, etc.), show extracted content or file info
-      if (item.extracted_text) {
-        const newWindow = window.open('', '_blank');
-        if (newWindow) {
-          newWindow.document.write(`
-            <html>
-              <head><title>${item.title}</title></head>
-              <body style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
-                <h1>${item.title}</h1>
-                <p><strong>Type:</strong> ${item.file_type}</p>
-                <p><strong>Description:</strong> ${item.description || 'No description'}</p>
-                <hr>
-                <pre style="white-space: pre-wrap;">${item.extracted_text}</pre>
-              </body>
-            </html>
-          `);
-        }
-      } else if (item.file_path) {
-        // Try to open the file directly
-        window.open(item.file_path, '_blank');
-      } else {
-        toast({
-          title: 'No Content Available',
-          description: 'This file has not been processed yet or content could not be extracted.',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'File Not Available',
+        description: 'The file could not be found.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -302,4 +230,4 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
       </CardFooter>
     </Card>
   );
-}; 
+};

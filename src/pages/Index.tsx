@@ -9,11 +9,13 @@ import Navigation from '../components/Navigation';
 import AISummaryPanel from '../components/AISummaryPanel';
 import { KnowledgeBase } from './KnowledgeBase';
 import ChatInterface from './ChatInterface';
+import { FileViewer } from './FileViewer';
 
 const Index = () => {
   const [activeModule, setActiveModule] = useState('dashboard');
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedText, setSelectedText] = useState('');
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
 
   const renderActiveModule = () => {
     switch (activeModule) {
@@ -32,7 +34,18 @@ const Index = () => {
       case 'settings':
         return <Settings />;
       case 'knowledge-base':
-        return <KnowledgeBase />;
+        return <KnowledgeBase onViewFile={(fileId) => {
+          setSelectedFileId(fileId);
+          setActiveModule('file-viewer');
+        }} />;
+      case 'file-viewer':
+        return <FileViewer 
+          fileId={selectedFileId || undefined} 
+          onBack={() => {
+            setSelectedFileId(null);
+            setActiveModule('knowledge-base');
+          }} 
+        />;
       default:
         return <Dashboard onModuleChange={setActiveModule} />;
     }

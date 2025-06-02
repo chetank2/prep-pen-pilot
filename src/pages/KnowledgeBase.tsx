@@ -19,7 +19,11 @@ import {
   Settings
 } from 'lucide-react';
 
-export const KnowledgeBase: React.FC = () => {
+interface KnowledgeBaseProps {
+  onViewFile?: (fileId: string) => void;
+}
+
+export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ onViewFile }) => {
   const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -258,6 +262,7 @@ export const KnowledgeBase: React.FC = () => {
             loading={loading}
             viewMode={viewMode}
             onItemUpdate={loadKnowledgeItems}
+            onViewFile={onViewFile}
           />
         </div>
       </div>

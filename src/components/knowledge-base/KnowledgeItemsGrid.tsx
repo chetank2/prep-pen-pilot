@@ -12,6 +12,7 @@ interface KnowledgeItemsGridProps {
   loading: boolean;
   viewMode?: 'grid' | 'list';
   onItemUpdate: () => void;
+  onViewFile?: (fileId: string) => void;
 }
 
 export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
@@ -19,6 +20,7 @@ export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
   loading,
   viewMode = 'grid',
   onItemUpdate,
+  onViewFile,
 }) => {
   const { toast } = useToast();
 
@@ -52,6 +54,13 @@ export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
   };
 
   const handleView = (item: KnowledgeItem) => {
+    // Use the new file viewer if available
+    if (onViewFile) {
+      onViewFile(item.id);
+      return;
+    }
+
+    // Fallback to the old method if onViewFile is not provided
     // Open the file for viewing based on its type
     if (item.file_type === 'pdf') {
       // For PDFs, we can try to open the file URL directly or show extracted content
@@ -290,6 +299,7 @@ export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
           key={item.id}
           item={item}
           onUpdate={onItemUpdate}
+          onViewFile={onViewFile}
         />
       ))}
     </div>
