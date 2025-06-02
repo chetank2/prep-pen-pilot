@@ -55,26 +55,45 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, onBack }) => {
     
     setDownloading(true);
     try {
+      console.log('Starting download from FileViewer for item:', file.id);
       const blob = await KnowledgeBaseService.downloadFile(file.id);
+      
+      // Create a proper filename with extension
+      let fileName = file.file_name || file.title;
+      const hasExtension = fileName.includes('.');
+      
+      if (!hasExtension) {
+        // Add appropriate extension based on file type or content type
+        const extension = file.file_type === 'text' ? '.txt' : 
+                         file.file_type === 'pdf' ? '.pdf' :
+                         file.file_type === 'image' ? '.jpg' :
+                         file.file_type === 'video' ? '.mp4' :
+                         file.file_type === 'audio' ? '.mp3' : '.txt';
+        fileName += extension;
+      }
       
       // Create download link
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = file.file_name || file.title;
+      link.download = fileName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
+      console.log('Download completed successfully from FileViewer for:', fileName);
       toast({
-        title: 'Success',
-        description: 'File downloaded successfully',
+        title: 'Download Complete',
+        description: `${fileName} downloaded successfully`,
       });
     } catch (error) {
+      console.error('Download failed in FileViewer:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       toast({
-        title: 'Error',
-        description: 'Failed to download file',
+        title: 'Download Failed',
+        description: `Unable to download file: ${errorMessage}`,
         variant: 'destructive',
       });
     } finally {
@@ -111,6 +130,9 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, onBack }) => {
       width: `${10000 / zoom}%`,
     };
 
+    // Check if we have extracted text content to show
+    const hasTextContent = file.extracted_text && file.extracted_text.trim().length > 0;
+
     // PDF files
     if (file.file_type === 'pdf') {
       if (file.file_path) {
@@ -125,12 +147,17 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, onBack }) => {
             />
           </div>
         );
-      } else if (file.extracted_text) {
+      } else if (hasTextContent) {
         return (
           <div 
             className="bg-white p-8 rounded-lg border border-slate-200 max-w-4xl mx-auto"
             style={contentStyle}
           >
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 text-sm">
+                📄 Showing extracted text content from PDF file
+              </p>
+            </div>
             <h2 className="text-xl font-bold mb-4">{file.title}</h2>
             {file.description && (
               <p className="text-slate-600 mb-6">{file.description}</p>
@@ -196,13 +223,18 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, onBack }) => {
       }
     }
 
-    // Text and other files
-    if (file.extracted_text) {
+    // Text and other files with extracted content
+    if (hasTextContent) {
       return (
         <div 
           className="bg-white p-8 rounded-lg border border-slate-200 max-w-4xl mx-auto"
           style={contentStyle}
         >
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-800 text-sm">
+              📝 Showing processed content from {file.file_type} file
+            </p>
+          </div>
           <h2 className="text-xl font-bold mb-4">{file.title}</h2>
           {file.description && (
             <p className="text-slate-600 mb-6">{file.description}</p>
@@ -225,6 +257,11 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, onBack }) => {
           <p className="text-slate-600 mb-4">
             This file type cannot be previewed in the browser.
           </p>
+          <div className="text-xs text-slate-500 mb-4">
+            File type: {file.file_type || 'Unknown'}<br/>
+            Has extracted text: {hasTextContent ? 'Yes' : 'No'}<br/>
+            Has file path: {file.file_path ? 'Yes' : 'No'}
+          </div>
           <Button onClick={handleDownload} disabled={downloading}>
             {downloading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
