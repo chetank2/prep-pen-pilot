@@ -76,18 +76,6 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       extractedText = `File uploaded: ${body.fileName}\nProcessing required for content extraction.`;
     }
     
-    // Generate a simple summary from extracted text
-    const generateSummary = (text: string): string => {
-      if (!text || text.length < 50) return 'No summary available';
-      
-      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
-      const firstFew = sentences.slice(0, 3).join('. ');
-      
-      return firstFew.length > 200 
-        ? firstFew.substring(0, 200) + '...'
-        : firstFew + (firstFew.endsWith('.') ? '' : '.');
-    };
-    
     // Create a knowledge item with extracted content
     const knowledgeItem = {
       id: uuidv4(),
@@ -101,7 +89,6 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       file_path: null, // No file storage in this implementation
       mime_type: body.fileType || 'text/plain',
       extracted_text: extractedText,
-      ai_summary: generateSummary(extractedText),
       processing_status: 'completed', // Mark as completed since we processed it
       metadata: {
         ...uploadData.metadata,

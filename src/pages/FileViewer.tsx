@@ -31,7 +31,18 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, onBack }) => {
       
       if (item) {
         setFile(item);
+        console.log('FileViewer loaded file:', {
+          id: item.id,
+          title: item.title,
+          file_type: item.file_type,
+          file_path: item.file_path,
+          has_extracted_text: !!item.extracted_text,
+          extracted_text_length: item.extracted_text?.length || 0,
+          extracted_text_preview: item.extracted_text ? item.extracted_text.substring(0, 100) + '...' : 'No content',
+          processing_status: item.processing_status
+        });
       } else {
+        console.log('FileViewer: File not found with ID:', id);
         toast({
           title: 'File Not Found',
           description: 'The requested file could not be found.',
@@ -251,16 +262,30 @@ export const FileViewer: React.FC<FileViewerProps> = ({ fileId, onBack }) => {
     // Fallback for files without content
     return (
       <div className="flex justify-center items-center h-full">
-        <div className="bg-white p-8 rounded-lg border border-slate-200 shadow-lg text-center max-w-md">
+        <div className="bg-white p-8 rounded-lg border border-slate-200 shadow-lg text-center max-w-lg">
           <Eye className="w-16 h-16 text-slate-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Preview Not Available</h3>
           <p className="text-slate-600 mb-4">
             This file type cannot be previewed in the browser.
           </p>
-          <div className="text-xs text-slate-500 mb-4">
+          <div className="text-xs text-slate-500 mb-4 text-left bg-slate-50 p-3 rounded">
+            <strong>Debug Information:</strong><br/>
             File type: {file.file_type || 'Unknown'}<br/>
             Has extracted text: {hasTextContent ? 'Yes' : 'No'}<br/>
-            Has file path: {file.file_path ? 'Yes' : 'No'}
+            Has file path: {file.file_path ? 'Yes' : 'No'}<br/>
+            Processing status: {file.processing_status || 'Unknown'}<br/>
+            Text length: {file.extracted_text?.length || 0} characters<br/>
+            Content preview: {file.content_text ? 'Available' : 'Not available'}<br/>
+            {file.extracted_text && (
+              <>
+                <br/>
+                <strong>Text preview (first 200 chars):</strong><br/>
+                <span className="text-xs bg-white p-2 rounded border">
+                  {file.extracted_text.substring(0, 200)}
+                  {file.extracted_text.length > 200 ? '...' : ''}
+                </span>
+              </>
+            )}
           </div>
           <Button onClick={handleDownload} disabled={downloading}>
             {downloading ? (
