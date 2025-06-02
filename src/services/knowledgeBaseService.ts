@@ -208,10 +208,7 @@ export class KnowledgeBaseService {
       // Build query parameters
       const params = new URLSearchParams();
       
-      // Always include userId - use default if not provided
-      const userId = filters?.userId || 'current-user';
-      params.append('userId', userId);
-      
+      // Remove userId requirement for single-user system
       if (filters?.categoryId) {
         params.append('categoryId', filters.categoryId);
       }
@@ -226,12 +223,9 @@ export class KnowledgeBaseService {
     } catch (error) {
       console.error('Failed to fetch knowledge items:', error);
       
-      // Fallback to direct Supabase with proper filters
+      // Fallback to direct Supabase without userId filtering
       try {
-        return await dbHelpers.getKnowledgeItems({
-          ...filters,
-          userId: filters?.userId || 'current-user'
-        });
+        return await dbHelpers.getKnowledgeItems(filters);
       } catch (fallbackError) {
         console.error('Fallback also failed:', fallbackError);
         return [];

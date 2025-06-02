@@ -153,9 +153,8 @@ export const dbHelpers = {
       `)
       .order('created_at', { ascending: false });
 
-    // Always filter by userId - use a default if none provided
-    const userId = filters?.userId || 'current-user';
-    query = query.eq('user_id', userId);
+    // Remove userId filtering for single-user system
+    // Users can see all knowledge items
 
     if (filters?.categoryId) {
       query = query.eq('category_id', filters.categoryId);

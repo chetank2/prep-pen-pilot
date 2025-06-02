@@ -45,8 +45,8 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get userId from query parameters
-    const userId = new URL(`https://example.com${event.path}?${event.rawQuery || ''}`).searchParams.get('userId') || 'current-user';
+    // Remove userId filtering for single-user system
+    // Just get all knowledge items
 
     const { data, error } = await supabase
       .from('knowledge_items')
@@ -54,7 +54,6 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
         *,
         knowledge_categories(name, color, icon)
       `)
-      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {

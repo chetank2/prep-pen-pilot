@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Search, Filter, ArrowLeft, Database, BookOpen, Brain, FileText } from 'lucide-react';
+import { Plus, Search, Filter, Database, BookOpen, Brain, FileText } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { CategorySidebar } from '../components/knowledge-base/CategorySidebar';

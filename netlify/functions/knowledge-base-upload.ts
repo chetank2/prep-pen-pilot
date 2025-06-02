@@ -47,13 +47,14 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     // Create a basic knowledge item without actual file processing for now
     const knowledgeItem = {
       id: uuidv4(),
-      user_id: 'current-user', // Use consistent user ID
+      user_id: '00000000-0000-0000-0000-000000000000', // Default user for single-user system
       category_id: uploadData.categoryId,
       title: uploadData.title,
       description: uploadData.description || null,
-      file_type: 'text', // Default to text type
+      file_type: body.fileType ? body.fileType.split('/')[0] : 'text', // Use actual file type
+      file_name: body.fileName || 'Untitled',
+      file_size: body.fileSize || 0,
       file_path: null, // No actual file storage yet
-      file_size: 0, // No file size yet
       processing_status: 'completed', // Mark as completed for immediate display
       metadata: uploadData.metadata || {},
       created_at: new Date().toISOString(),
