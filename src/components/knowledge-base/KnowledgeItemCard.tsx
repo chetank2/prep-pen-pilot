@@ -6,8 +6,8 @@ import {
   Image, 
   File,
   MoreVertical,
-  Brain,
-  BookOpen,
+  Eye,
+  Download,
   Loader2,
   Calendar,
   HardDrive
@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger 
 } from '../ui/dropdown-menu';
 import { KnowledgeItem } from '../../types/knowledgeBase';
-import { knowledgeBaseAPI } from '../../services/knowledgeBaseApi';
+import { KnowledgeBaseService } from '../../services/knowledgeBaseService';
 import { useToast } from '../../hooks/use-toast';
 
 interface KnowledgeItemCardProps {
@@ -57,8 +57,7 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
   item,
   onUpdate,
 }) => {
-  const [isGeneratingMindmap, setIsGeneratingMindmap] = useState(false);
-  const [isGeneratingNotes, setIsGeneratingNotes] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { toast } = useToast();
 
   const IconComponent = fileTypeIcons[item.file_type] || File;
@@ -84,59 +83,50 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
     return date.toLocaleDateString();
   };
 
-  const handleGenerateMindmap = async () => {
-    if (item.processing_status !== 'completed') {
+  const handleView = () => {
+    // Open the file for viewing based on its type
+    if (item.file_type === 'pdf') {
+      // Open PDF viewer or redirect to PDF reader
+      window.open(`/pdf-viewer/${item.id}`, '_blank');
+    } else if (item.file_type === 'image') {
+      // Open image in a modal or new tab
+      window.open(item.file_path || '#', '_blank');
+    } else {
+      // For other file types, show content in a modal or viewer
       toast({
-        title: 'Content not ready',
-        description: 'Please wait for the content to be processed first.',
-        variant: 'destructive',
+        title: 'Viewing',
+        description: `Opening ${item.title}...`,
       });
-      return;
-    }
-
-    setIsGeneratingMindmap(true);
-    try {
-      await knowledgeBaseAPI.generateMindmap(item.id, item.title);
-      toast({
-        title: 'Success',
-        description: 'Mindmap generated successfully',
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to generate mindmap',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsGeneratingMindmap(false);
     }
   };
 
-  const handleGenerateNotes = async () => {
-    if (item.processing_status !== 'completed') {
-      toast({
-        title: 'Content not ready',
-        description: 'Please wait for the content to be processed first.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsGeneratingNotes(true);
+  const handleDownload = async () => {
+    setIsDownloading(true);
     try {
-      await knowledgeBaseAPI.generateNotes(item.id, item.title);
+      const blob = await KnowledgeBaseService.downloadFile(item.id);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = item.file_name || item.title;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
       toast({
         title: 'Success',
-        description: 'Notes generated successfully',
+        description: 'File downloaded successfully',
       });
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to generate notes',
+        description: 'Failed to download file',
         variant: 'destructive',
       });
     } finally {
-      setIsGeneratingNotes(false);
+      setIsDownloading(false);
     }
   };
 
@@ -168,21 +158,17 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleGenerateMindmap} disabled={isGeneratingMindmap}>
-                {isGeneratingMindmap ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Brain className="w-4 h-4 mr-2" />
-                )}
-                Generate Mindmap
+              <DropdownMenuItem onClick={handleView}>
+                <Eye className="w-4 h-4 mr-2" />
+                View
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleGenerateNotes} disabled={isGeneratingNotes}>
-                {isGeneratingNotes ? (
+              <DropdownMenuItem onClick={handleDownload} disabled={isDownloading}>
+                {isDownloading ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
-                  <BookOpen className="w-4 h-4 mr-2" />
+                  <Download className="w-4 h-4 mr-2" />
                 )}
-                Generate Notes
+                Download
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -217,29 +203,24 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
             variant="outline"
             size="sm"
             className="flex-1 border-slate-200 hover:bg-slate-50"
-            onClick={handleGenerateMindmap}
-            disabled={item.processing_status !== 'completed' || isGeneratingMindmap}
+            onClick={handleView}
           >
-            {isGeneratingMindmap ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Brain className="w-4 h-4 mr-2" />
-            )}
-            Mindmap
+            <Eye className="w-4 h-4 mr-2" />
+            View
           </Button>
           <Button
             variant="outline"
             size="sm"
             className="flex-1 border-slate-200 hover:bg-slate-50"
-            onClick={handleGenerateNotes}
-            disabled={item.processing_status !== 'completed' || isGeneratingNotes}
+            onClick={handleDownload}
+            disabled={isDownloading}
           >
-            {isGeneratingNotes ? (
+            {isDownloading ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
-              <BookOpen className="w-4 h-4 mr-2" />
+              <Download className="w-4 h-4 mr-2" />
             )}
-            Notes
+            Download
           </Button>
         </div>
       </CardFooter>

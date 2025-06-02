@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Database, BookOpen, Brain, FileText } from 'lucide-react';
+import { Plus, Search, Filter, Database, BookOpen, Brain, FileText, Grid, List } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { CategorySidebar } from '../components/knowledge-base/CategorySidebar';
@@ -28,6 +28,7 @@ export const KnowledgeBase: React.FC = () => {
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -211,6 +212,27 @@ export const KnowledgeBase: React.FC = () => {
               />
             </div>
           </div>
+          
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+              className="h-8 px-3"
+            >
+              <Grid className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+              className="h-8 px-3"
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+          
           <Button variant="outline" className="border-slate-200">
             <Filter className="w-4 h-4 mr-2" />
             Filter
@@ -240,6 +262,7 @@ export const KnowledgeBase: React.FC = () => {
           <KnowledgeItemsGrid
             items={filteredItems}
             loading={loading}
+            viewMode={viewMode}
             onItemUpdate={loadKnowledgeItems}
           />
         </div>
