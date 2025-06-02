@@ -1,23 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '../utils/logger';
-import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
-
-// Load environment variables directly here
-const envPaths = [
-  path.join(__dirname, '../../.env'),
-  path.join(process.cwd(), '.env'),
-  '.env'
-];
-
-for (const envPath of envPaths) {
-  if (fs.existsSync(envPath)) {
-    console.log('DEBUG - Loading .env from:', envPath);
-    dotenv.config({ path: envPath });
-    break;
-  }
-}
 
 // Debug environment variables
 console.log('DEBUG - Environment variables:');

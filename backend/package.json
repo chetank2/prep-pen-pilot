@@ -4,7 +4,7 @@
   "description": "Backend API for UPSC Preparation PWA",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx --require dotenv/config --watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest",

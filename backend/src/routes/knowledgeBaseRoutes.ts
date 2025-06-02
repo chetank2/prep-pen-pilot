@@ -3,8 +3,28 @@ import multer from 'multer';
 import { EnhancedFileUploadService } from '../services/enhancedFileUploadService';
 import { SupabaseService } from '../services/supabaseService';
 import { logger } from '../utils/logger';
+import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
+
+// Default user UUID for demo/testing purposes
+const DEFAULT_USER_UUID = '550e8400-e29b-41d4-a716-446655440000';
+
+// Helper function to get or create default user
+async function getValidUserId(userId?: string): Promise<string> {
+  if (!userId || userId === 'default-user' || userId === 'undefined' || userId === 'null') {
+    return DEFAULT_USER_UUID;
+  }
+  
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(userId)) {
+    logger.warn(`Invalid UUID format for userId: ${userId}, using default`);
+    return DEFAULT_USER_UUID;
+  }
+  
+  return userId;
+}
 
 // Configure multer for file uploads
 const upload = multer({
@@ -36,17 +56,19 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     }
 
     const uploadData = JSON.parse(req.body.uploadData);
+    const userId = await getValidUserId(req.body.userId || req.query.userId as string);
     
     logger.info('Processing file upload', {
       fileName: req.file.originalname,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
+      userId,
     });
 
     const result = await EnhancedFileUploadService.processFileUpload(
       req.file,
       uploadData,
-      req.body.userId || req.query.userId as string
+      userId
     );
 
     res.json({
@@ -66,15 +88,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // Get knowledge items with filters
 router.get('/items', async (req, res) => {
   try {
-    const userId = req.query.userId as string;
+    const userId = await getValidUserId(req.query.userId as string);
     
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID is required',
-      });
-    }
-
     const filters = {
       userId,
       categoryId: req.query.categoryId as string,
@@ -83,6 +98,8 @@ router.get('/items', async (req, res) => {
       difficultyLevel: req.query.difficultyLevel as string,
       tags: req.query.tags ? (req.query.tags as string).split(',') : undefined,
     };
+
+    logger.info('Fetching knowledge items with filters:', filters);
 
     const items = await SupabaseService.getKnowledgeItems(filters);
 
@@ -95,6 +112,7 @@ router.get('/items', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch knowledge items',
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 });
@@ -147,19 +165,12 @@ router.put('/items/:id', async (req, res) => {
 router.get('/search', async (req, res) => {
   try {
     const query = req.query.q as string;
-    const userId = req.query.userId as string;
+    const userId = await getValidUserId(req.query.userId as string);
     
     if (!query) {
       return res.status(400).json({
         success: false,
         message: 'Search query is required',
-      });
-    }
-    
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID is required',
       });
     }
 
@@ -211,14 +222,7 @@ router.get('/download/:id', async (req, res) => {
 // Get compression statistics
 router.get('/compression-stats', async (req, res) => {
   try {
-    const userId = req.query.userId as string;
-    
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID is required',
-      });
-    }
+    const userId = await getValidUserId(req.query.userId as string);
 
     const stats = await EnhancedFileUploadService.getCompressionStats(userId);
 

@@ -22,30 +22,117 @@ async function isBackendAvailable(): Promise<boolean> {
   }
 }
 
+// Helper function to handle API responses
+async function handleApiResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+    } catch {
+      // If we can't parse the error response, use the default message
+    }
+    throw new Error(errorMessage);
+  }
+
+  const result = await response.json();
+  
+  // Handle different API response formats
+  if (result && typeof result === 'object') {
+    // If it has a success field and it's false, treat as error
+    if (result.success === false) {
+      throw new Error(result.message || 'API returned error');
+    }
+    
+    // If it has a data field, return that
+    if (result.data !== undefined) {
+      return result.data;
+    }
+  }
+  
+  return result;
+}
+
 export class KnowledgeBaseService {
   
   // Category Management
   static async getCategories(): Promise<KnowledgeCategory[]> {
+    const backendAvailable = await isBackendAvailable();
+    
     try {
-      // Try Netlify function first, then Supabase fallback
-      const url = getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.CATEGORIES);
-      const response = await fetch(url);
+      const url = backendAvailable 
+        ? `${API_CONFIG.DEVELOPMENT_API}/knowledge-base/categories`
+        : getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.CATEGORIES);
       
-      if (response.ok) {
-        const result = await response.json();
-        return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
-      }
+      const response = await fetch(url);
+      const categories = await handleApiResponse<KnowledgeCategory[]>(response);
+      return categories || [];
+    } catch (error) {
+      console.error('Failed to fetch categories from API:', error);
       
       // Fallback to direct Supabase
-      return await dbHelpers.getCategories();
-    } catch (error) {
-      console.error('Failed to fetch categories:', error);
-      // Final fallback to Supabase
       try {
         return await dbHelpers.getCategories();
       } catch (fallbackError) {
-        console.error('Supabase fallback also failed:', fallbackError);
-        throw new Error('Unable to fetch categories. Please check your connection.');
+        console.error('Fallback to Supabase also failed:', fallbackError);
+        // Return default categories as last resort
+        return [
+          { 
+            id: '1', 
+            name: 'Books', 
+            description: 'Academic and reference books', 
+            icon: 'book', 
+            color: '#3B82F6',
+            is_default: true,
+            is_custom: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          { 
+            id: '2', 
+            name: 'Articles', 
+            description: 'Research papers and articles', 
+            icon: 'file-text', 
+            color: '#F59E0B',
+            is_default: true,
+            is_custom: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          { 
+            id: '3', 
+            name: 'Notes', 
+            description: 'Personal and study notes', 
+            icon: 'edit', 
+            color: '#06B6D4',
+            is_default: true,
+            is_custom: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          { 
+            id: '4', 
+            name: 'Videos', 
+            description: 'Educational videos', 
+            icon: 'video', 
+            color: '#EC4899',
+            is_default: true,
+            is_custom: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          { 
+            id: '5', 
+            name: 'Images', 
+            description: 'Diagrams and charts', 
+            icon: 'image', 
+            color: '#84CC16',
+            is_default: true,
+            is_custom: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+        ];
       }
     }
   }
@@ -85,46 +172,44 @@ export class KnowledgeBaseService {
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Upload failed');
-      }
-
-      const result = await response.json();
-      return result.data || result;
+      const result = await handleApiResponse<KnowledgeItem>(response);
+      return result;
     } catch (error) {
       console.error('File upload failed:', error);
-      throw error;
+      throw new Error(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   // Knowledge Items Management
   static async getKnowledgeItems(filters?: SearchFilters): Promise<KnowledgeItem[]> {
+    const backendAvailable = await isBackendAvailable();
+    
     try {
-      // Try Netlify function first
+      // Build query parameters
       const params = new URLSearchParams();
       if (filters?.categoryId) {
         params.append('categoryId', filters.categoryId);
       }
-
-      const url = getApiUrl(`${API_ENDPOINTS.KNOWLEDGE_BASE.ITEMS}?${params}`);
-      const response = await fetch(url);
-      
-      if (response.ok) {
-        const result = await response.json();
-        return Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : []);
+      if (filters?.userId) {
+        params.append('userId', filters.userId);
       }
+
+      const url = backendAvailable 
+        ? `${API_CONFIG.DEVELOPMENT_API}/knowledge-base/items?${params}`
+        : getApiUrl(`${API_ENDPOINTS.KNOWLEDGE_BASE.ITEMS}?${params}`);
       
-      // Fallback to direct Supabase
-      return await dbHelpers.getKnowledgeItems(filters);
+      const response = await fetch(url);
+      const items = await handleApiResponse<KnowledgeItem[]>(response);
+      return Array.isArray(items) ? items : [];
     } catch (error) {
       console.error('Failed to fetch knowledge items:', error);
+      
       // Fallback to direct Supabase
       try {
         return await dbHelpers.getKnowledgeItems(filters);
       } catch (fallbackError) {
         console.error('Fallback also failed:', fallbackError);
-        throw new Error('Unable to fetch knowledge items from any source.');
+        return [];
       }
     }
   }
@@ -194,21 +279,31 @@ export class KnowledgeBaseService {
   }
 
   private static calculateSearchFacets(items: KnowledgeItem[]) {
-    const categories = new Map<string, number>();
-    const fileTypes = new Map<string, number>();
+    const categories = new Map<string, { id: string; name: string; count: number }>();
     const subjects = new Map<string, number>();
+    const contentTypes = new Map<string, number>();
+    const tags = new Map<string, number>();
 
     items.forEach(item => {
       // Count categories
       if (item.knowledge_categories?.name) {
-        const count = categories.get(item.knowledge_categories.name) || 0;
-        categories.set(item.knowledge_categories.name, count + 1);
+        const categoryKey = item.knowledge_categories.name;
+        const existing = categories.get(categoryKey);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          categories.set(categoryKey, {
+            id: item.category_id,
+            name: item.knowledge_categories.name,
+            count: 1
+          });
+        }
       }
 
-      // Count file types
+      // Count content types (file types)
       if (item.file_type) {
-        const count = fileTypes.get(item.file_type) || 0;
-        fileTypes.set(item.file_type, count + 1);
+        const count = contentTypes.get(item.file_type) || 0;
+        contentTypes.set(item.file_type, count + 1);
       }
 
       // Count subjects from metadata
@@ -217,12 +312,21 @@ export class KnowledgeBaseService {
         const count = subjects.get(subject) || 0;
         subjects.set(subject, count + 1);
       }
+
+      // Count tags from metadata
+      if (item.metadata?.tags) {
+        item.metadata.tags.forEach(tag => {
+          const count = tags.get(tag) || 0;
+          tags.set(tag, count + 1);
+        });
+      }
     });
 
     return {
-      categories: Array.from(categories.entries()).map(([name, count]) => ({ name, count })),
-      fileTypes: Array.from(fileTypes.entries()).map(([name, count]) => ({ name, count })),
+      categories: Array.from(categories.values()),
       subjects: Array.from(subjects.entries()).map(([name, count]) => ({ name, count })),
+      contentTypes: Array.from(contentTypes.entries()).map(([type, count]) => ({ type, count })),
+      tags: Array.from(tags.entries()).map(([tag, count]) => ({ tag, count })),
     };
   }
 

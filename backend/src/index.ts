@@ -6,7 +6,9 @@ import fs from 'fs';
 // Try multiple possible paths for the .env file
 const envPaths = [
   path.join(__dirname, '../.env'),
+  path.join(__dirname, '../../.env'), // Root directory from backend/src
   path.join(process.cwd(), '.env'),
+  path.join(process.cwd(), '../.env'), // Parent directory
   '.env'
 ];
 
@@ -40,6 +42,9 @@ import { testConnection } from './config/supabase';
 import knowledgeBaseRoutes from './routes/knowledgeBaseRoutes';
 import chatRoutes from './routes/chatRoutes';
 import folderRoutes from './routes/folderRoutes';
+import notesRoutes from './routes/notes';
+import pdfRoutes from './routes/pdf';
+import aiRoutes from './routes/ai';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,13 +54,18 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS configuration
+// CORS configuration - Updated to include user's current IP
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5173',
+    'http://localhost:8080',
     'http://localhost:8087',
     'http://localhost:8091',
+    'http://192.168.1.8:8080',
+    'http://192.168.1.8:8081',
+    'http://192.168.1.8:3000',
+    'http://192.168.1.8:5173',
     'https://preperation.netlify.app'
   ],
   credentials: true,
@@ -125,10 +135,24 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Health check endpoint under /api path for frontend compatibility
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: '2.0.0',
+  });
+});
+
 // API routes
 app.use('/api/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/folders', folderRoutes);
+app.use('/api/notes', notesRoutes);
+app.use('/api/pdf', pdfRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

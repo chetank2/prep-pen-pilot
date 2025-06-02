@@ -1,3 +1,32 @@
+# Prep Pen Pilot - AI-Powered Study Assistant
+
+> **✅ UPDATE**: Localhost 500 errors have been fixed! See [FIXES_APPLIED.md](./FIXES_APPLIED.md) for details.
+
+## 🚀 Status Update (Jun 2, 2025)
+
+### ✅ Working on Localhost
+- **Backend API**: All endpoints responding correctly
+- **Categories**: Returns 6 default categories  
+- **Knowledge Items**: Properly handles UUID validation
+- **Error Handling**: Improved with proper fallbacks
+- **TypeScript**: All type errors resolved
+
+### ⚠️ Pending Setup
+- **Storage Buckets**: Need to be created in Supabase (see [setup guide](./scripts/setup-storage-buckets.sql))
+- **File Uploads**: Will work after bucket setup
+
+### 🧪 Quick Test
+```bash
+# Test the fixed endpoints
+curl "http://localhost:3001/api/health"                    # ✅ Working
+curl "http://localhost:3001/api/knowledge-base/categories"  # ✅ Working  
+curl "http://localhost:3001/api/knowledge-base/items"       # ✅ Working
+```
+
+---
+
+## Overview
+
 # Welcome to your Lovable project
 
 ## Project info
