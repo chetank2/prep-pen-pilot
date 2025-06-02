@@ -26,8 +26,7 @@
 
 [dev]
   command = "npm run dev"
-  targetPort = 8888
-  port = 8888
+  targetPort = 8093
   autoLaunch = true
 
 # Headers for proper MIME types

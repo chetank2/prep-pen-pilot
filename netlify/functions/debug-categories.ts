@@ -14,9 +14,9 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
   }
 
   try {
-    // Check environment variables
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Check environment variables - use VITE_* pattern with fallbacks
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseServiceKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     const diagnostics: any = {
       timestamp: new Date().toISOString(),
@@ -24,6 +24,7 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
         hasSupabaseUrl: !!supabaseUrl,
         hasSupabaseKey: !!supabaseServiceKey,
         supabaseUrlPrefix: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NOT SET',
+        envPattern: process.env.VITE_SUPABASE_URL ? 'VITE_*' : 'Legacy',
       },
       database: {
         connected: false,
