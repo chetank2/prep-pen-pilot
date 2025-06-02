@@ -163,8 +163,21 @@ export class KnowledgeBaseService {
         ? `${API_CONFIG.DEVELOPMENT_API}/knowledge-base/upload`
         : getApiUrl(API_ENDPOINTS.KNOWLEDGE_BASE.UPLOAD);
 
-      // For Netlify functions, send as JSON instead of FormData for now
+      // For Netlify functions, read file content and send as JSON
       if (!backendAvailable) {
+        // Read file content for text-based files
+        let fileContent = '';
+        if (file.type.startsWith('text/') || 
+            file.name.endsWith('.txt') || 
+            file.name.endsWith('.md') || 
+            file.name.endsWith('.json')) {
+          try {
+            fileContent = await file.text();
+          } catch (error) {
+            console.warn('Could not read file content:', error);
+          }
+        }
+
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -175,6 +188,7 @@ export class KnowledgeBaseService {
             fileName: file.name,
             fileSize: file.size,
             fileType: file.type,
+            fileContent: fileContent, // Send the actual file content
           }),
         });
 

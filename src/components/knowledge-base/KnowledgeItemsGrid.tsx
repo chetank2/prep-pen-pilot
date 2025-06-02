@@ -54,12 +54,17 @@ export const KnowledgeItemsGrid: React.FC<KnowledgeItemsGridProps> = ({
   };
 
   const handleView = (item: KnowledgeItem) => {
+    console.log('Grid view button clicked for item:', item.id);
+    console.log('onViewFile prop in grid:', onViewFile);
+    
     // Use the new file viewer if available
     if (onViewFile) {
+      console.log('Grid using onViewFile callback');
       onViewFile(item.id);
       return;
     }
 
+    console.log('Grid using fallback method');
     // Fallback to the old method if onViewFile is not provided
     // Open the file for viewing based on its type
     if (item.file_type === 'pdf') {

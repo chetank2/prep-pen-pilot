@@ -2,6 +2,26 @@ import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 
+// Simple text extraction function
+function extractTextFromFile(fileName: string, fileContent: string): string {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  
+  switch (extension) {
+    case 'txt':
+    case 'md':
+      return fileContent;
+    case 'json':
+      try {
+        return JSON.stringify(JSON.parse(fileContent), null, 2);
+      } catch {
+        return fileContent;
+      }
+    default:
+      // For other file types, return a placeholder indicating processing is needed
+      return `File uploaded: ${fileName}\nSize: ${fileContent.length} characters\nType: ${extension}\n\nContent extraction for this file type requires additional processing.`;
+  }
+}
+
 export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
@@ -40,23 +60,54 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Parse the body to get uploadData
+    // Parse the body to get uploadData and file information
     const body = JSON.parse(event.body || '{}');
     const uploadData = JSON.parse(body.uploadData || '{}');
     
-    // Create a basic knowledge item without actual file processing for now
+    // Extract file type from MIME type
+    const fileType = body.fileType ? body.fileType.split('/')[0] : 'text';
+    const fileExtension = body.fileName ? body.fileName.split('.').pop()?.toLowerCase() : 'txt';
+    
+    // Extract text content if available
+    let extractedText = '';
+    if (body.fileContent) {
+      extractedText = extractTextFromFile(body.fileName, body.fileContent);
+    } else {
+      extractedText = `File uploaded: ${body.fileName}\nProcessing required for content extraction.`;
+    }
+    
+    // Generate a simple summary from extracted text
+    const generateSummary = (text: string): string => {
+      if (!text || text.length < 50) return 'No summary available';
+      
+      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 10);
+      const firstFew = sentences.slice(0, 3).join('. ');
+      
+      return firstFew.length > 200 
+        ? firstFew.substring(0, 200) + '...'
+        : firstFew + (firstFew.endsWith('.') ? '' : '.');
+    };
+    
+    // Create a knowledge item with extracted content
     const knowledgeItem = {
       id: uuidv4(),
       user_id: '00000000-0000-0000-0000-000000000000', // Default user for single-user system
       category_id: uploadData.categoryId,
       title: uploadData.title,
       description: uploadData.description || null,
-      file_type: body.fileType ? body.fileType.split('/')[0] : 'text', // Use actual file type
+      file_type: fileType,
       file_name: body.fileName || 'Untitled',
       file_size: body.fileSize || 0,
-      file_path: null, // No actual file storage yet
-      processing_status: 'completed', // Mark as completed for immediate display
-      metadata: uploadData.metadata || {},
+      file_path: null, // No file storage in this implementation
+      mime_type: body.fileType || 'text/plain',
+      extracted_text: extractedText,
+      ai_summary: generateSummary(extractedText),
+      processing_status: 'completed', // Mark as completed since we processed it
+      metadata: {
+        ...uploadData.metadata,
+        file_extension: fileExtension,
+        processing_method: 'netlify_function'
+      },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -88,7 +139,7 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       body: JSON.stringify({
         success: true,
         data: data,
-        message: 'File uploaded successfully'
+        message: 'File processed and uploaded successfully'
       }),
     };
 

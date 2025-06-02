@@ -86,12 +86,24 @@ export const KnowledgeItemCard: React.FC<KnowledgeItemCardProps> = ({
   };
 
   const handleView = () => {
+    console.log('View button clicked for item:', item.id);
+    console.log('onViewFile prop:', onViewFile);
+    console.log('item details:', {
+      id: item.id,
+      title: item.title,
+      file_path: item.file_path,
+      extracted_text: item.extracted_text ? 'Has extracted text' : 'No extracted text',
+      file_type: item.file_type
+    });
+
     // Use the new file viewer if available
     if (onViewFile) {
+      console.log('Using onViewFile callback');
       onViewFile(item.id);
       return;
     }
 
+    console.log('Using fallback method');
     // Fallback to the old method
     if (item.file_path) {
       window.open(item.file_path, '_blank');
