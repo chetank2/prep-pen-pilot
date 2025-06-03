@@ -9,8 +9,13 @@
  * Usage: node scripts/test-knowledge-base.js
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Test configuration
 const TEST_CONFIG = {
@@ -341,11 +346,11 @@ process.on('uncaughtException', (error) => {
 });
 
 // Check if running directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   runTests();
 }
 
-module.exports = {
+export {
   runTests,
   TEST_CONFIG,
   testResults
