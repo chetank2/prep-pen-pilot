@@ -38,3 +38,6 @@ backend/logs/*
 *.njsproj
 *.sln
 *.sw?
+
+# Local Netlify folder
+.netlify
