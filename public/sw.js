@@ -53,6 +53,20 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Skip caching for development files and modules
+  const isDevelopment = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  const isModule = request.url.includes('main.tsx') || 
+                   request.url.includes('@react-refresh') || 
+                   request.url.includes('.tsx') || 
+                   request.url.includes('.ts') || 
+                   request.url.includes('?t=') || // Vite timestamp query
+                   request.destination === 'script';
+
+  // Don't intercept development files or modules
+  if (isDevelopment && isModule) {
+    return;
+  }
+
   // Handle API requests differently
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
