@@ -140,7 +140,7 @@ npm run dev
 #### 3. File Processing Pipeline
 ```typescript
 // Add PDF text extraction
-// Implement image OCR processing
+// Image OCR implemented with Tesseract.js
 // Complete video/audio handling
 ```
 

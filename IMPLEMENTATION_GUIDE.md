@@ -130,7 +130,7 @@ prep-pen-pilot/
 1. **File Upload**: User uploads a file through the enhanced dialog
 2. **Compression**: System compresses based on file type:
    - **Text/PDF**: Lossless zlib compression + text extraction
-   - **Images**: Quality-based compression with OCR
+   - **Images**: Quality-based compression with OCR via Tesseract.js
    - **Videos/Audio**: Placeholder for ffmpeg compression
 3. **Storage**: Compressed file stored in Supabase Storage
 4. **Original Preservation**: Critical files keep original copy
@@ -141,7 +141,7 @@ prep-pen-pilot/
 | File Type | Compression Method | Text Extraction | AI Compatible |
 |-----------|-------------------|-----------------|---------------|
 | PDF | Zlib (lossless) | ✅ Basic | ✅ |
-| Images | Zlib + OCR ready | 🔄 Placeholder | ✅ |
+| Images | Zlib + OCR (Tesseract.js) | ✅ Basic | ✅ |
 | Videos | Zlib + transcript ready | 🔄 Placeholder | 🔄 |
 | Audio | Zlib + transcript ready | 🔄 Placeholder | 🔄 |
 | Text | Zlib (lossless) | ✅ Direct | ✅ |
@@ -159,7 +159,7 @@ The system tracks:
 
 ### 1. Text Extraction
 - PDF: Basic text pattern matching (upgradeable to pdf-parse)
-- Images: OCR ready (Tesseract.js integration point)
+ - Images: OCR via Tesseract.js
 - Videos/Audio: Transcript extraction ready
 
 ### 2. AI Analysis
@@ -307,7 +307,7 @@ Users can create unlimited custom categories with:
 ## 📈 Future Enhancements
 
 ### Phase 2 Features
-- **Advanced OCR**: Tesseract.js integration
+ - **Advanced OCR**: Multi-language and accuracy improvements
 - **Video Processing**: ffmpeg integration
 - **Audio Transcription**: Whisper API integration
 - **Advanced Search**: Vector similarity search
