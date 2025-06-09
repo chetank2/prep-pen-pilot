@@ -5,6 +5,7 @@ import { OpenAIService } from '../services/OpenAIService';
 import { EnhancedFileUploadService } from '../services/enhancedFileUploadService';
 import { logger } from '../utils/logger';
 import { supabase } from '../config/supabase';
+import Tesseract from 'tesseract.js';
 
 const router = express.Router();
 const openaiService = new OpenAIService();
@@ -153,8 +154,13 @@ router.post('/sessions/:sessionId/messages', upload.array('files', 5), async (re
           let extractedText = '';
           
           if (file.mimetype.startsWith('image/')) {
-            // TODO: Implement OCR for images
-            extractedText = `[Image: ${file.originalname}]`;
+            // Perform OCR on images to extract text
+            try {
+              const { data } = await Tesseract.recognize(file.buffer, 'eng');
+              extractedText = data.text || '';
+            } catch (err) {
+              logger.warn(`OCR failed for ${file.originalname}:`, err);
+            }
           } else if (file.mimetype === 'application/pdf') {
             // Extract text from PDF
             const result = await EnhancedFileUploadService.extractTextFromFile(file);
