@@ -21,7 +21,16 @@
 curl "http://localhost:3001/api/health"                    # ✅ Working
 curl "http://localhost:3001/api/knowledge-base/categories"  # ✅ Working  
 curl "http://localhost:3001/api/knowledge-base/items"       # ✅ Working
+curl -X POST "http://localhost:3001/api/ai/summarize" \
+     -H "Content-Type: application/json" \
+     -d '{"text":"Example text"}'            # ✅ AI summary
 ```
+
+### AI Summary Panel
+
+Select text in the PDF reader and open the AI panel to ask follow-up questions.
+The panel now calls the `/api/ai/summarize` endpoint to generate answers based
+on your selection.
 
 ---
 

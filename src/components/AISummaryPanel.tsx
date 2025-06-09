@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Send, Lightbulb, MessageSquare, Copy, Bookmark } from 'lucide-react';
+import { apiService } from '../services/api';
 
 interface AISummaryPanelProps {
   isOpen: boolean;
@@ -32,17 +33,22 @@ const AISummaryPanel: React.FC<AISummaryPanelProps> = ({ isOpen, onClose, select
     setIsLoading(true);
 
     try {
-      // TODO: Replace with actual AI service call
-      // For now, provide a generic response based on the selected text
-      setTimeout(() => {
-        const aiResponse = {
-          type: 'ai',
-          content: `I'll help you with the selected text "${selectedText.substring(0, 50)}...". Please note that AI features require backend integration. Your question: "${inputMessage}"`,
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, aiResponse]);
-        setIsLoading(false);
-      }, 1500);
+      const response = await apiService.summarizeText(selectedText, inputMessage);
+
+      let aiContent = 'Sorry, I could not process your request.';
+      if (response.success && response.data) {
+        aiContent = response.data.summary;
+      } else if (response.error) {
+        aiContent = response.error;
+      }
+
+      const aiResponse = {
+        type: 'ai',
+        content: aiContent,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, aiResponse]);
+      setIsLoading(false);
     } catch (error) {
       console.error('Failed to get AI response:', error);
       const errorResponse = {
