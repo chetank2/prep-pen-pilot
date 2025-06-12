@@ -1,74 +1,109 @@
 // Unified configuration for API endpoints and environment variables
+import { portConfig } from './portConfig';
 
 // Environment detection
 const isDevelopment = import.meta.env.DEV;
 const isNetlifyProduction = window.location.hostname.includes('netlify.app');
 
 // API Configuration
+const API_PORTS = [3001, 3002, 3003, 3004, 3005, 3006, 3007, 3008, 3009, 3010];
+let cachedPort: number | null = null;
+
+// Default to 3003 based on current backend port
+const DEFAULT_PORT = 3003;
+
 export const API_CONFIG = {
-  // Base URLs for different environments
-  DEVELOPMENT_API: 'http://localhost:3001/api',
-  NETLIFY_API: '/api', // Uses Netlify redirects
-  
-  // Current API base URL - Always use Netlify functions now
-  BASE_URL: '/api', // Always use Netlify functions for consistency
-  
-  // Feature flags - Disable backend fallback to prevent localhost:3001 calls
-  USE_BACKEND_FALLBACK: false, // Changed from isDevelopment
-  USE_NETLIFY_FUNCTIONS: true, // Always use Netlify functions
+  getBaseUrl: () => `http://localhost:${cachedPort || DEFAULT_PORT}`,
+  TIMEOUT: 30000, // 30 seconds
+  RETRY_COUNT: 3,
+  RETRY_DELAY: 1000, // 1 second
 };
 
-// Legacy compatibility export
-export const API_BASE_URL = API_CONFIG.BASE_URL;
+// API Endpoints - Define without base URL first
+export const API_ENDPOINTS = {
+  KNOWLEDGE_BASE: {
+    BASE: '/api/knowledge-base',
+    UPLOAD: '/api/knowledge-base/upload',
+    CATEGORIES: '/api/knowledge-base/categories',
+    ITEMS: '/api/knowledge-base/items',
+  },
+  CHAT: {
+    BASE: '/api/chat',
+    MESSAGE: '/api/chat/message',
+    SESSIONS: '/api/chat/sessions',
+  },
+  FOLDERS: {
+    BASE: '/api/folders',
+    LIST: '/api/folders/list',
+    CREATE: '/api/folders/create',
+  },
+  HEALTH: '/health',
+};
 
-// Supabase Configuration
+// Get full API URL for a specific endpoint
+export const getApiUrl = (endpoint: string): string => {
+  return `${API_CONFIG.getBaseUrl()}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+};
+
+async function findActivePort() {
+  console.log('Starting port discovery...');
+  
+  // First try the default port (3003)
+  try {
+    console.log('Trying default port 3003...');
+    const response = await fetch('http://localhost:3003/health', {
+      signal: AbortSignal.timeout(1000)
+    });
+    if (response.ok) {
+      console.log('Default port 3003 is active');
+      portConfig.updatePorts({ backend: 3003 });
+      cachedPort = 3003;
+      return 3003;
+    }
+  } catch (error) {
+    console.log('Default port 3003 failed:', error.message);
+  }
+
+  // Then try other ports if default fails
+  for (const port of API_PORTS.filter(p => p !== 3003)) {
+    console.log(`Trying port ${port}...`);
+    try {
+      const response = await fetch(`http://localhost:${port}/health`, {
+        signal: AbortSignal.timeout(1000)
+      });
+      if (response.ok) {
+        console.log(`Found active backend on port ${port}`);
+        portConfig.updatePorts({ backend: port });
+        cachedPort = port;
+        return port;
+      }
+    } catch (error) {
+      console.log(`Port ${port} failed:`, error.message);
+      continue;
+    }
+  }
+  
+  console.warn('No active backend port found, using default:', DEFAULT_PORT);
+  cachedPort = DEFAULT_PORT;
+  portConfig.updatePorts({ backend: DEFAULT_PORT });
+  return DEFAULT_PORT;
+}
+
+// Initialize port discovery
+export const initializationPromise = findActivePort().catch(error => {
+  console.error('Failed to initialize API:', error);
+  cachedPort = DEFAULT_PORT;
+  portConfig.updatePorts({ backend: DEFAULT_PORT });
+});
+
+// Legacy compatibility export
+export const API_BASE_URL = API_CONFIG.getBaseUrl();
+
+// Rest of the configuration
 export const SUPABASE_CONFIG = {
   URL: import.meta.env.VITE_SUPABASE_URL,
   ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
   IS_CONFIGURED: !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY),
-};
-
-// API Endpoints
-export const API_ENDPOINTS = {
-  KNOWLEDGE_BASE: {
-    CATEGORIES: '/knowledge-base/categories',
-    ITEMS: '/knowledge-base/items',
-    UPLOAD: '/knowledge-base/upload',
-    COMPRESSION_STATS: '/knowledge-base/compression-stats',
-  },
-  CHAT: {
-    MESSAGE: '/chat/message',
-    SESSIONS: '/chat/sessions',
-  },
-  DEBUG: {
-    CATEGORIES: '/debug/categories',
-    FRONTEND_CONFIG: '/test/frontend-config',
-  },
-  LEGACY: {
-    PDF: '/pdf',
-    NOTES: '/notes',
-    FOLDERS: '/folders',
-  },
-};
-
-// Helper function to get full API URL
-export const getApiUrl = (endpoint: string): string => {
-  return `${API_CONFIG.BASE_URL}${endpoint}`;
-};
-
-// Helper function to check if backend is available
-export const checkBackendAvailability = async (): Promise<boolean> => {
-  if (!API_CONFIG.USE_BACKEND_FALLBACK) return false;
-  
-  try {
-    const response = await fetch(`${API_CONFIG.DEVELOPMENT_API}/health`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(3000)
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
 };
 
 // Storage Configuration
@@ -153,12 +188,12 @@ export const formatFileSize = (bytes: number): string => {
 export default {
   API_CONFIG,
   SUPABASE_CONFIG,
-  API_ENDPOINTS,
   STORAGE_CONFIG,
   APP_CONFIG,
   RATE_LIMIT_CONFIG,
-  getApiUrl,
-  checkBackendAvailability,
   validateFile,
   formatFileSize,
-}; 
+  getApiUrl,
+  initializationPromise,
+  API_ENDPOINTS,
+};
